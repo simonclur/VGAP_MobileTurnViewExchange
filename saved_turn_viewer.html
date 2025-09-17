@@ -283,6 +283,24 @@
             box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
         }
 
+        .build-info {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .build-info a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+
+        .build-info a:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
@@ -348,6 +366,11 @@
 
         <div id="dataSections" class="data-sections hidden">
             <!-- Data sections will be populated by JavaScript -->
+        </div>
+
+        <div class="build-info">
+            <div>📁 VGAP Saved Turn Viewer</div>
+            <div>Built: <span id="buildDate"></span> | <a href="https://github.com/simonclur/VGAP_MobileTurnViewExchange" target="_blank">View on GitHub</a></div>
         </div>
     </div>
 
@@ -729,6 +752,38 @@
             clearFileBtn.addEventListener('click', clearData);
             copyBtn.addEventListener('click', copyToClipboard);
             saveBtn.addEventListener('click', resaveFile);
+
+            // Set build date from GitHub API
+            const buildDateElement = document.getElementById('buildDate');
+            buildDateElement.textContent = 'Loading...';
+            
+            // Fetch last commit date from GitHub API
+            fetch('https://api.github.com/repos/simonclur/VGAP_MobileTurnViewExchange/commits/main')
+                .then(response => response.json())
+                .then(data => {
+                    const commitDate = new Date(data.commit.author.date);
+                    const formattedDate = commitDate.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                    });
+                    buildDateElement.innerHTML = `${formattedDate} <span style="opacity: 0.7;">(<a href="https://github.com/simonclur/VGAP_MobileTurnViewExchange/commit/${data.sha}" target="_blank" style="color: #00d4ff; text-decoration: none;">${data.sha.substring(0, 7)}</a>)</span>`;
+                })
+                .catch(error => {
+                    console.error('Failed to fetch commit date:', error);
+                    const fallbackDate = new Date().toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                    });
+                    buildDateElement.textContent = `${fallbackDate} (offline)`;
+                });
         });
     </script>
 </body>
