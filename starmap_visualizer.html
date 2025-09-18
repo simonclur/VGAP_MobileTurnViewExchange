@@ -193,6 +193,30 @@
             align-items: center;
         }
 
+        .zoom-indicator {
+            background: #1e1e1e;
+            border: 2px solid #00d4ff;
+            border-radius: 4px;
+            padding: 4px 8px;
+            color: #00d4ff;
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-indicator.zoom-min {
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+
+        .zoom-indicator.zoom-max {
+            border-color: #f44336;
+            color: #f44336;
+        }
+
         button {
             padding: 8px 16px;
             background: linear-gradient(45deg, #00d4ff, #0099cc);
@@ -413,6 +437,7 @@
                     <button id="zoomOut">Zoom Out</button>
                     <button id="resetZoom">Reset View</button>
                     <button id="fitToScreen">Fit to Screen</button>
+                    <div id="zoomIndicator" class="zoom-indicator">100%</div>
                 </div>
             </div>
         </div>
@@ -556,8 +581,8 @@
             });
             
             // Zoom controls
-            document.getElementById('zoomIn').addEventListener('click', () => zoomStarmap(1.5));
-            document.getElementById('zoomOut').addEventListener('click', () => zoomStarmap(0.67));
+            document.getElementById('zoomIn').addEventListener('click', () => zoomStarmap(1.4));
+            document.getElementById('zoomOut').addEventListener('click', () => zoomStarmap(0.714)); // 1/1.4
             document.getElementById('resetZoom').addEventListener('click', resetView);
             document.getElementById('fitToScreen').addEventListener('click', fitToScreen);
         }
@@ -782,90 +807,77 @@
             redrawStarmap();
         }
 
-        // Authentic Planets.nu coordinate transformation system
-        // Based on nu.js ecMap class implementation
-        
-        const mapCanvas = {
-            x: 500,          // bottom left X value in map units (default start position)
-            y: 500,          // bottom left Y value in map units (default start position)  
-            mapwidth: 2000,  // width of map in map units (standard VGAP map)
-            mapheight: 2000, // height of map in map units (standard VGAP map)
-            width: 800,      // width of canvas in pixels
-            height: 600,     // height of canvas in pixels
-            zoom: 1.0        // zoom factor
-        };
-        
-        // Initialize canvas dimensions from actual SVG and game data
-        function initializeMapCanvas(svgWidth, svgHeight, gameSettings) {
-            mapCanvas.width = svgWidth;
-            mapCanvas.height = svgHeight;
+        function createScalingFunctions(svgWidth, svgHeight, gameData) {
+            // Calculate the actual coordinate bounds from planet data
+            const planets = gameData.rst?.planets || [];
+            let minX = 0, maxX = 2000, minY = 0, maxY = 2000;
             
-            // Calculate actual coordinate bounds from planet data
-            const planets = currentGameData.rst?.planets || [];
             if (planets.length > 0) {
                 const xCoords = planets.map(p => p.x).filter(x => x !== undefined);
                 const yCoords = planets.map(p => p.y).filter(y => y !== undefined);
                 
-                const minX = Math.min(...xCoords);
-                const maxX = Math.max(...xCoords);
-                const minY = Math.min(...yCoords);
-                const maxY = Math.max(...yCoords);
+                minX = Math.min(...xCoords);
+                maxX = Math.max(...xCoords);
+                minY = Math.min(...yCoords);
+                maxY = Math.max(...yCoords);
                 
-                // Use actual data bounds instead of settings
-                mapCanvas.mapwidth = maxX - minX + 100;  // Add padding
-                mapCanvas.mapheight = maxY - minY + 100; // Add padding
-                
-                console.log(`Calculated map bounds: X=${minX}-${maxX}, Y=${minY}-${maxY}`);
-                console.log(`Map canvas initialized: ${mapCanvas.width}x${mapCanvas.height} pixels, ${mapCanvas.mapwidth}x${mapCanvas.mapheight} map units`);
-                
-                // Set zoom to fit entire map in view
-                const scaleX = mapCanvas.width / mapCanvas.mapwidth;
-                const scaleY = mapCanvas.height / mapCanvas.mapheight;
-                mapCanvas.zoom = Math.min(scaleX, scaleY) * 0.9; // 90% to leave margin
-                
-                // Set canvas origin to actual data bounds (bottom-left corner)
-                mapCanvas.x = minX - 50; // Bottom-left X with padding
-                mapCanvas.y = minY - 50; // Bottom-left Y with padding
-                
-                console.log(`Map view: zoom=${mapCanvas.zoom.toFixed(3)}, origin=(${mapCanvas.x.toFixed(1)}, ${mapCanvas.y.toFixed(1)})`);
-            } else {
-                // Fallback to default values if no planets
-                console.log(`No planet data found, using defaults`);
-                mapCanvas.mapwidth = gameSettings?.mapwidth || 2000;
-                mapCanvas.mapheight = gameSettings?.mapheight || 2000;
-                mapCanvas.zoom = Math.min(mapCanvas.width / mapCanvas.mapwidth, mapCanvas.height / mapCanvas.mapheight) * 0.9;
-                mapCanvas.x = (mapCanvas.mapwidth / 2) - (mapCanvas.width / mapCanvas.zoom / 2);
-                mapCanvas.y = (mapCanvas.mapheight / 2) - (mapCanvas.height / mapCanvas.zoom / 2);
+                console.log(`Game coordinate bounds: X=${minX}-${maxX}, Y=${minY}-${maxY}`);
             }
-        }
-        
-        // Authentic coordinate transformation functions from nu.js
-        function screenX(x) {
-            return ((x - mapCanvas.x) * mapCanvas.zoom) + 0.5;
-        }
-        
-        function screenY(y) {
-            return mapCanvas.height - (((y - mapCanvas.y) * mapCanvas.zoom) + 0.5);
-        }
-        
-        function createScalingFunctions(svgWidth, svgHeight, gameData) {
-            // Initialize the authentic map canvas system
-            initializeMapCanvas(svgWidth, svgHeight, gameData.rst?.settings);
             
-            // Return scaling functions using authentic coordinate system
+            // Add padding to the coordinate system
+            const padding = 100;
+            const gameMinX = minX - padding;
+            const gameMaxX = maxX + padding;
+            const gameMinY = minY - padding;
+            const gameMaxY = maxY + padding;
+            const gameWidth = gameMaxX - gameMinX;
+            const gameHeight = gameMaxY - gameMinY;
             
+            // Calculate scale to fit game coordinates into SVG coordinates
+            const scaleFactorX = svgWidth / gameWidth;
+            const scaleFactorY = svgHeight / gameHeight;
+            const scaleFactor = Math.min(scaleFactorX, scaleFactorY); // Maintain aspect ratio
+            
+            // Center the game area in the SVG
+            const offsetX = (svgWidth - (gameWidth * scaleFactor)) / 2;
+            const offsetY = (svgHeight - (gameHeight * scaleFactor)) / 2;
+            
+            console.log(`Scale factor: ${scaleFactor.toFixed(3)}, offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+            
+            // Transform game coordinates to SVG coordinates
             const scaleX = (x) => {
-                return screenX(x);
+                const gameX = (x || 0) - gameMinX;
+                return gameX * scaleFactor + offsetX;
             };
             
             const scaleY = (y) => {
-                return screenY(y);
+                const gameY = (y || 0) - gameMinY;
+                // Flip Y coordinate: SVG Y=0 is top, VGAP Y=0 is bottom
+                return (gameHeight - gameY) * scaleFactor + offsetY;
             };
             
+            // Store bounds for viewBox calculation (now in SVG coordinate space)
+            window.gameBounds = {
+                minX: offsetX,
+                maxX: offsetX + (gameWidth * scaleFactor),
+                minY: offsetY,
+                maxY: offsetY + (gameHeight * scaleFactor),
+                width: gameWidth * scaleFactor,
+                height: gameHeight * scaleFactor,
+                // Store original game coordinates for reference
+                gameMinX: gameMinX,
+                gameMaxX: gameMaxX,
+                gameMinY: gameMinY,
+                gameMaxY: gameMaxY,
+                gameWidth: gameWidth,
+                gameHeight: gameHeight,
+                scaleFactor: scaleFactor
+            };
+            
+            console.log(`Set up coordinate system: SVG bounds ${offsetX.toFixed(1)},${offsetY.toFixed(1)} to ${(offsetX + gameWidth * scaleFactor).toFixed(1)},${(offsetY + gameHeight * scaleFactor).toFixed(1)}`);
+            
             return { scaleX, scaleY };
-        }
-
-        function calculateStarmapDimensions() {
+        }        function calculateStarmapDimensions() {
             // Use standard VGAP map aspect ratio (typically square maps)
             const gameSettings = currentGameData.rst?.settings;
             const mapWidth = gameSettings?.mapwidth || 2000;
@@ -907,48 +919,75 @@
                 console.warn("Player ID not found in turn data! Using neutral view.");
             }
             
-            // Update SVG dimensions
+            // Update SVG dimensions and viewBox
             svgElement.setAttribute('width', width);
             svgElement.setAttribute('height', height);
-            svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            
+            // Only set initial viewBox if it hasn't been set yet (preserve zoom/pan)
+            if (!svgElement.getAttribute('viewBox') || svgElement.getAttribute('viewBox') === 'null null null null') {
+                svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+                console.log(`Initial viewBox: 0 0 ${width} ${height}`);
+            } else {
+                console.log(`Preserving current viewBox: ${svgElement.getAttribute('viewBox')}`);
+            }
             
             // Create scaling functions using authentic Planets.nu coordinate system
-            const { scaleX, scaleY } = createScalingFunctions(width, height, currentGameData);            // Add border rect like the dashboard
-            const borderRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            borderRect.setAttribute("x", "0");
-            borderRect.setAttribute("y", "0");
-            borderRect.setAttribute("width", width);
-            borderRect.setAttribute("height", height);
-            borderRect.setAttribute("fill", "none");
-            borderRect.setAttribute("stroke", "#444");
-            borderRect.setAttribute("stroke-width", "2");
-            svgElement.appendChild(borderRect);
+            const { scaleX, scaleY } = createScalingFunctions(width, height, currentGameData);
+            
+            // Add border rect using SVG bounds
+            if (window.gameBounds) {
+                const bounds = window.gameBounds;
+                const borderRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                borderRect.setAttribute("x", bounds.minX);
+                borderRect.setAttribute("y", bounds.minY);
+                borderRect.setAttribute("width", bounds.width);
+                borderRect.setAttribute("height", bounds.height);
+                borderRect.setAttribute("fill", "none");
+                borderRect.setAttribute("stroke", "#444");
+                borderRect.setAttribute("stroke-width", "2");
+                svgElement.appendChild(borderRect);
+                console.log(`Added border rect: ${bounds.minX.toFixed(1)},${bounds.minY.toFixed(1)} ${bounds.width.toFixed(1)}x${bounds.height.toFixed(1)}`);
+            }
             
             // Pass scaling functions to drawing functions
             const drawingContext = { scaleX, scaleY };
             
+            // Log checkbox states for debugging
+            console.log('Checkbox states:', {
+                nebulas: document.getElementById('showNebulas').checked,
+                planets: document.getElementById('showPlanets').checked,
+                starbases: document.getElementById('showStarbases').checked,
+                ships: document.getElementById('showShips').checked,
+                notes: document.getElementById('showNotes').checked
+            });
+            
             // Draw nebulas first (background)
             if (document.getElementById('showNebulas').checked) {
+                console.log('Drawing nebulas...');
                 drawNebulas(svgElement, drawingContext);
             }
             
             // Draw planets
             if (document.getElementById('showPlanets').checked) {
+                console.log('Drawing planets...');
                 drawPlanets(svgElement, playerId, drawingContext);
             }
             
             // Draw starbases
             if (document.getElementById('showStarbases').checked) {
+                console.log('Drawing starbases...');
                 drawStarbases(svgElement, playerId, drawingContext);
             }
             
             // Draw ships
             if (document.getElementById('showShips').checked) {
+                console.log('Drawing ships...');
                 drawShips(svgElement, playerId, drawingContext);
             }
             
             // Draw strategic notes
             if (document.getElementById('showNotes').checked) {
+                console.log('Drawing strategic notes...');
                 drawStrategicNotes(svgElement, drawingContext);
             }
         }
@@ -957,6 +996,10 @@
             const nebulas = currentGameData.rst?.nebulas || [];
             const { scaleX, scaleY } = drawingContext;
             
+            // Calculate zoom scale for stroke width (with fallback)
+            const currentZoomLevel = getCurrentZoomLevel();
+            const zoomScale = 1 / currentZoomLevel;
+            
             nebulas.forEach(nebula => {
                 const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 circle.setAttribute("cx", scaleX(nebula.x || 0));
@@ -964,8 +1007,8 @@
                 circle.setAttribute("r", (nebula.radius || 50) * 0.5); // Scale radius down for display
                 circle.setAttribute("fill", Colors.NEBULA_FILL);
                 circle.setAttribute("stroke", Colors.NEBULA_STROKE);
-                circle.setAttribute("stroke-width", "2");
-                circle.setAttribute("stroke-dasharray", "5,5");
+                circle.setAttribute("stroke-width", 2 * zoomScale);
+                circle.setAttribute("stroke-dasharray", `${5 * zoomScale},${5 * zoomScale}`);
                 
                 addTooltipToElement(circle, {
                     title: `🌫️ ${nebula.name || 'Nebula'}`,
@@ -994,32 +1037,74 @@
             const mapHeight = gameSettings.mapheight || 2000;
             
             console.log(`Drawing ${planets.length} planets with wrap-around universe (${mapWidth}x${mapHeight})`);
+            console.log(`Found ${starbases.length} starbases in data`);
             console.log(`First few planets:`, planets.slice(0, 3).map(p => ({ name: p.name, x: p.x, y: p.y })));
+            
+            if (starbases.length > 0) {
+                console.log(`First few starbases:`, starbases.slice(0, 3).map(sb => ({ 
+                    id: sb.id, 
+                    planetid: sb.planetid,
+                    name: sb.name
+                })));
+            }
             
             // Create starbase lookup
             starbases.forEach(sb => {
                 starbaseMap[sb.planetid] = sb;
             });
             
+            console.log(`Starbase map created with ${Object.keys(starbaseMap).length} entries`);
+            
+            let renderCount = 0;
+            let errorCount = 0;
+            let starbaseCount = 0;
+            
             planets.forEach((planet, index) => {
-                // Draw main planet at its actual position
-                drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerId, index < 3);
-                
-                // Draw wrap-around copies for edge planets
-                drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerId);
+                try {
+                    // Check if this planet has a starbase
+                    if (starbaseMap[planet.id]) {
+                        starbaseCount++;
+                        if (index < 5) {
+                            console.log(`Planet ${planet.name} (ID: ${planet.id}) has starbase:`, starbaseMap[planet.id]);
+                        }
+                    }
+                    
+                    // Draw main planet at its actual position
+                    drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerId, index < 3);
+                    renderCount++;
+                    
+                    // Draw wrap-around copies for edge planets
+                    drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerId);
+                } catch (error) {
+                    errorCount++;
+                    console.warn(`Error rendering planet ${planet.name || planet.id} at (${planet.x}, ${planet.y}):`, error);
+                }
             });
+            
+            console.log(`Planet rendering complete: ${renderCount} planets rendered, ${starbaseCount} with starbases, ${errorCount} errors`);
         }
         
         function drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerId, showDebug = false) {
-            const cx = scaleX(planet.x || 0);
-            const cy = scaleY(planet.y || 0);
+            if (!planet || (!planet.x && planet.x !== 0) || (!planet.y && planet.y !== 0)) {
+                console.warn('Invalid planet data:', planet);
+                return;
+            }
+            
+            const cx = scaleX(planet.x);
+            const cy = scaleY(planet.y);
             
             if (showDebug) {
                 console.log(`Planet ${planet.name}: game coords (${planet.x}, ${planet.y}) -> screen coords (${cx.toFixed(1)}, ${cy.toFixed(1)})`);
             }
             
-            // Use fixed radius like the dashboard (2mm = ~7.5px)
-            const radiusPx = 7.5;
+            // Calculate current zoom level to scale elements consistently (with fallback)
+            const currentZoomLevel = getCurrentZoomLevel();
+            
+            // Scale element sizes inversely with zoom so they stay constant visual size
+            const zoomScale = 1 / currentZoomLevel;
+            const radiusPx = 7.5 * zoomScale;
+            const fontSize = 10 * zoomScale;
+            const strokeWidth = 1 * zoomScale;
             
             // Draw starbase highlight if present (like dashboard)
             if (starbaseMap[planet.id]) {
@@ -1031,7 +1116,7 @@
                 square.setAttribute("height", side);
                 square.setAttribute("fill", "none");
                 square.setAttribute("stroke", "#ffeb3b");
-                square.setAttribute("stroke-width", "2");
+                square.setAttribute("stroke-width", 2 * zoomScale);
                 parent.appendChild(square);
             }
             
@@ -1041,20 +1126,18 @@
                 circle.setAttribute("r", radiusPx);
                 circle.setAttribute("fill", getPlanetColor(planet, playerId));
                 circle.setAttribute("stroke", "#ffffff");
-                circle.setAttribute("stroke-width", "1");
+                circle.setAttribute("stroke-width", strokeWidth);
                 circle.style.cursor = "pointer";
                 
-                // Add planet name label
-                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                label.setAttribute("x", cx);
-                label.setAttribute("y", cy + radiusPx + 15);
-                label.setAttribute("text-anchor", "middle");
-                label.setAttribute("fill", "#ffffff");
-                label.setAttribute("font-size", "10");
-                label.setAttribute("font-weight", "bold");
-                label.textContent = (planet.name || `Planet ${planet.id}`).substring(0, 12);
-                
-                // Find ships at this planet
+            // Add planet name label
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", cx);
+            label.setAttribute("y", cy + radiusPx + (15 * zoomScale));
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("fill", "#ffffff");
+            label.setAttribute("font-size", fontSize);
+            label.setAttribute("font-weight", "normal");  // Changed from bold to normal
+            label.textContent = (planet.name || `Planet ${planet.id}`).substring(0, 12);                // Find ships at this planet
                 const ships = currentGameData.rst?.ships || [];
                 const shipsAtPlanet = ships.filter(ship => 
                     parseInt(ship.x, 10) === parseInt(planet.x, 10) && 
@@ -1105,11 +1188,11 @@
             const x = planet.x || 0;
             const y = planet.y || 0;
             
-            // Get current view bounds to determine which wrap-around copies to draw
-            const viewLeft = mapCanvas.x;
-            const viewRight = mapCanvas.x + (mapCanvas.width / mapCanvas.zoom);
-            const viewTop = mapCanvas.y;
-            const viewBottom = mapCanvas.y + (mapCanvas.height / mapCanvas.zoom);
+            // Get current viewBox to determine which wrap-around copies to draw
+            const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+            const [viewLeft, viewTop, viewWidth, viewHeight] = viewBox;
+            const viewRight = viewLeft + viewWidth;
+            const viewBottom = viewTop + viewHeight;
             
             // Standard VGAP wrap-around: 2000x2000 universe wraps at edges
             const universeWidth = 2000;
@@ -1153,90 +1236,121 @@
             
             console.log(`Drawing ${ships.length} ships with playerId=${playerIdNum}`);
             
-            // Debug: Log the first few ships and directly examine the ship structure
-            if (ships.length > 0) {
-                console.log("First ship raw data:", ships[0]);
-                console.log("First few ships:", ships.slice(0, 3).map(s => {
-                    // Safely parse ownerid to a number
-                    const ownerIdNum = parseInt(s.ownerid, 10) || 0;
-                    return { 
-                        name: s.name,
-                        ownerid: s.ownerid,
-                        owneridNum: ownerIdNum,
-                        playerId: playerIdNum,
-                        isPlayerShip: ownerIdNum === playerIdNum
-                    };
-                }));
+            if (ships.length === 0) {
+                console.log("No ships found in game data");
+                return;
             }
             
-            ships.forEach(ship => {
-                const cx = scaleX(ship.x || 0);
-                const cy = scaleY(ship.y || 0);
+            // Debug: Log the first few ships and directly examine the ship structure
+            console.log("First ship raw data:", ships[0]);
+            console.log("First few ships:", ships.slice(0, 3).map(s => {
+                // Safely parse ownerid to a number
+                const ownerIdNum = parseInt(s.ownerid, 10) || 0;
+                return { 
+                    name: s.name,
+                    ownerid: s.ownerid,
+                    owneridNum: ownerIdNum,
+                    x: s.x,
+                    y: s.y,
+                    playerId: playerIdNum,
+                    isPlayerShip: ownerIdNum === playerIdNum
+                };
+            }));
+
+            let renderCount = 0;
+            let errorCount = 0;
+
+            ships.forEach((ship, index) => {
+                try {
+                    if (!ship || (!ship.x && ship.x !== 0) || (!ship.y && ship.y !== 0)) {
+                        console.warn(`Ship ${index} has invalid coordinates:`, ship);
+                        errorCount++;
+                        return;
+                    }
+
+                    const cx = scaleX(ship.x);
+                    const cy = scaleY(ship.y);
+                    
+                    // Safely parse ship owner ID to ensure proper comparison
+                    const shipOwnerIdNum = parseInt(ship.ownerid, 10) || 0;
+                    const isMine = shipOwnerIdNum === playerIdNum;
+                    
+                    // Check if ship is at a planet (like dashboard)
+                    const atPlanet = planets.find(p => 
+                        Math.abs(p.x - ship.x) < 2 && Math.abs(p.y - ship.y) < 2
+                    );
                 
-                // Safely parse ship owner ID to ensure proper comparison
-                const shipOwnerIdNum = parseInt(ship.ownerid, 10) || 0;
-                const isMine = shipOwnerIdNum === playerIdNum;
-                
-                // Check if ship is at a planet (like dashboard)
-                const atPlanet = planets.find(p => 
-                    Math.abs(p.x - ship.x) < 2 && Math.abs(p.y - ship.y) < 2
-                );
-                
-                if (atPlanet) {
-                    // Ship at planet - draw circle around planet
-                    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    circle.setAttribute("cx", scaleX(atPlanet.x));
-                    circle.setAttribute("cy", scaleY(atPlanet.y));
-                    circle.setAttribute("r", 16);
-                    circle.setAttribute("fill", "none");
-                    circle.setAttribute("stroke", isMine ? "#00e676" : "#e53935");
-                    circle.setAttribute("stroke-width", "2");
-                    circle.style.cursor = "pointer";
+                    if (atPlanet) {
+                        // Calculate zoom scale for consistent sizing (with fallback)
+                        const currentZoomLevel = getCurrentZoomLevel();
+                        const zoomScale = 1 / currentZoomLevel;
+                        
+                        // Ship at planet - draw circle around planet
+                        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        circle.setAttribute("cx", scaleX(atPlanet.x));
+                        circle.setAttribute("cy", scaleY(atPlanet.y));
+                        circle.setAttribute("r", 16 * zoomScale);
+                        circle.setAttribute("fill", "none");
+                        circle.setAttribute("stroke", isMine ? "#00e676" : "#e53935");
+                        circle.setAttribute("stroke-width", 2 * zoomScale);
+                        circle.style.cursor = "pointer";
+                        
+                        addTooltipToElement(circle, {
+                            title: `🚢 ${ship.name || 'Unnamed Ship'}`,
+                            data: {
+                                'ID': ship.id,
+                                'Owner': getOwnerName(ship.ownerid, playerId),
+                                'Hull': ship.hullname || 'Unknown',
+                                'Location': `(${ship.x}, ${ship.y})`,
+                                'At Planet': atPlanet.name || atPlanet.id,
+                                'Mass': `${ship.mass || 0} kt`,
+                                'Fuel': `${ship.neutronium || 0} kt`,
+                                'Crew': ship.crew || 0,
+                                'Damage': `${ship.damage || 0}%`
+                            }
+                        });
+                        
+                        parent.appendChild(circle);
+                    } else {
+                        // Calculate zoom scale for consistent sizing (with fallback)
+                        const currentZoomLevel = getCurrentZoomLevel();
+                        const zoomScale = 1 / currentZoomLevel;
+                        
+                        // Ship in space - draw small dot
+                        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        dot.setAttribute("cx", cx);
+                        dot.setAttribute("cy", cy);
+                        dot.setAttribute("r", 4 * zoomScale);
+                        dot.setAttribute("fill", isMine ? "#00e676" : "#e53935");
+                        dot.setAttribute("stroke", "#fff");
+                        dot.setAttribute("stroke-width", 1 * zoomScale);
+                        dot.style.cursor = "pointer";
+                        
+                        addTooltipToElement(dot, {
+                            title: `🚢 ${ship.name || 'Unnamed Ship'}`,
+                            data: {
+                                'ID': ship.id,
+                                'Owner': getOwnerName(ship.ownerid, playerId),
+                                'Hull': ship.hullname || 'Unknown',
+                                'Location': `(${ship.x}, ${ship.y})`,
+                                'Mass': `${ship.mass || 0} kt`,
+                                'Fuel': `${ship.neutronium || 0} kt`,
+                                'Crew': ship.crew || 0,
+                                'Damage': `${ship.damage || 0}%`
+                            }
+                        });
+                        
+                        parent.appendChild(dot);
+                    }
                     
-                    addTooltipToElement(circle, {
-                        title: `🚢 ${ship.name || 'Unnamed Ship'}`,
-                        data: {
-                            'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerId),
-                            'Hull': ship.hullname || 'Unknown',
-                            'Location': `(${ship.x}, ${ship.y})`,
-                            'At Planet': atPlanet.name || atPlanet.id,
-                            'Mass': `${ship.mass || 0} kt`,
-                            'Fuel': `${ship.neutronium || 0} kt`,
-                            'Crew': ship.crew || 0,
-                            'Damage': `${ship.damage || 0}%`
-                        }
-                    });
-                    
-                    parent.appendChild(circle);
-                } else {
-                    // Ship in space - draw small dot
-                    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    dot.setAttribute("cx", cx);
-                    dot.setAttribute("cy", cy);
-                    dot.setAttribute("r", 4);
-                    dot.setAttribute("fill", isMine ? "#00e676" : "#e53935");
-                    dot.setAttribute("stroke", "#fff");
-                    dot.setAttribute("stroke-width", "1");
-                    dot.style.cursor = "pointer";
-                    
-                    addTooltipToElement(dot, {
-                        title: `🚢 ${ship.name || 'Unnamed Ship'}`,
-                        data: {
-                            'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerId),
-                            'Hull': ship.hullname || 'Unknown',
-                            'Location': `(${ship.x}, ${ship.y})`,
-                            'Mass': `${ship.mass || 0} kt`,
-                            'Fuel': `${ship.neutronium || 0} kt`,
-                            'Crew': ship.crew || 0,
-                            'Damage': `${ship.damage || 0}%`
-                        }
-                    });
-                    
-                    parent.appendChild(dot);
+                    renderCount++;
+                } catch (error) {
+                    errorCount++;
+                    console.warn(`Error rendering ship ${ship.name || ship.id}:`, error);
                 }
             });
+            
+            console.log(`Ship rendering complete: ${renderCount} ships rendered, ${errorCount} errors`);
         }
 
         function drawStrategicNotes(parent, drawingContext) {
@@ -1450,18 +1564,47 @@
 
         // Pan and zoom functionality
         function startDrag(event) {
+            // Prevent dragging on interactive elements
+            if (event.target.tagName === 'circle' || event.target.tagName === 'rect') {
+                return;
+            }
+            
             isDragging = true;
-            dragStart = { x: event.clientX - currentPan.x, y: event.clientY - currentPan.y };
+            
+            // Get current viewBox
+            const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+            dragStart = { 
+                x: event.clientX,
+                y: event.clientY,
+                viewBoxX: viewBox[0],
+                viewBoxY: viewBox[1]
+            };
+            
             svgElement.style.cursor = 'grabbing';
+            event.preventDefault();
         }
 
         function drag(event) {
             if (!isDragging) return;
             
-            currentPan.x = event.clientX - dragStart.x;
-            currentPan.y = event.clientY - dragStart.y;
+            // Calculate drag distance in screen pixels
+            const deltaX = event.clientX - dragStart.x;
+            const deltaY = event.clientY - dragStart.y;
             
-            updateTransform();
+            // Get current viewBox dimensions
+            const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+            const [, , vbWidth, vbHeight] = viewBox;
+            
+            // Convert screen delta to world coordinates
+            const rect = svgElement.getBoundingClientRect();
+            const worldDeltaX = -(deltaX / rect.width) * vbWidth;
+            const worldDeltaY = -(deltaY / rect.height) * vbHeight;
+            
+            // Update viewBox position
+            const newViewBoxX = dragStart.viewBoxX + worldDeltaX;
+            const newViewBoxY = dragStart.viewBoxY + worldDeltaY;
+            
+            svgElement.setAttribute('viewBox', `${newViewBoxX} ${newViewBoxY} ${vbWidth} ${vbHeight}`);
         }
 
         function endDrag() {
@@ -1472,47 +1615,135 @@
         function handleWheel(event) {
             event.preventDefault();
             
-            const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-            zoomStarmap(zoomFactor);
+            // Get mouse position relative to the SVG
+            const rect = svgElement.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            
+            // More fine-grained zoom factors for smoother experience
+            const zoomFactor = event.deltaY > 0 ? 0.95 : 1.05;
+            zoomStarmapToPoint(zoomFactor, mouseX, mouseY);
         }
 
         function zoomStarmap(factor) {
-            currentZoom *= factor;
-            currentZoom = Math.max(0.1, Math.min(10, currentZoom)); // Limit zoom range
+            // Legacy function for button clicks - zoom to center
+            const rect = svgElement.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            zoomStarmapToPoint(factor, centerX, centerY);
+        }
+
+        function zoomStarmapToPoint(factor, screenX, screenY) {
+            if (!svgElement) return;
             
-            updateTransform();
+            const rect = svgElement.getBoundingClientRect();
+            
+            // Get the current viewBox
+            const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+            const [vbX, vbY, vbWidth, vbHeight] = viewBox;
+            
+            // Calculate current and new zoom levels based on SVG dimensions
+            const { width, height } = calculateStarmapDimensions();
+            const currentActualZoom = width / vbWidth;
+            const newActualZoom = currentActualZoom * factor;
+            
+            // Apply zoom limits
+            const clampedZoom = Math.max(0.05, Math.min(20, newActualZoom));
+            if (clampedZoom === currentActualZoom) return; // No change
+            
+            // Calculate the world coordinate that was under the mouse
+            const worldX = vbX + (screenX / rect.width) * vbWidth;
+            const worldY = vbY + (screenY / rect.height) * vbHeight;
+            
+            // Calculate new viewBox dimensions
+            const newVbWidth = width / clampedZoom;
+            const newVbHeight = height / clampedZoom;
+            
+            // Position the new viewBox so the world coordinate stays under the mouse
+            const newVbX = worldX - (screenX / rect.width) * newVbWidth;
+            const newVbY = worldY - (screenY / rect.height) * newVbHeight;
+            
+            svgElement.setAttribute('viewBox', `${newVbX} ${newVbY} ${newVbWidth} ${newVbHeight}`);
+            
+            updateZoomIndicator();
+            
+            // Use requestAnimationFrame to ensure viewBox change is processed before redraw
+            requestAnimationFrame(() => {
+                redrawStarmap();
+            });
         }
 
         function resetView() {
             currentZoom = 1;
             currentPan = { x: 0, y: 0 };
-            updateTransform();
+            
+            // Reset to initial viewBox showing entire SVG area
+            const { width, height } = calculateStarmapDimensions();
+            svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            
+            updateZoomIndicator();
+            
+            // Use requestAnimationFrame to ensure viewBox change is processed before redraw
+            requestAnimationFrame(() => {
+                redrawStarmap();
+            });
         }
 
         function fitToScreen() {
-            const containerRect = document.getElementById('starmapContainer').getBoundingClientRect();
-            const svgRect = svgElement.getBBox();
-            
-            const scaleX = containerRect.width / svgRect.width;
-            const scaleY = containerRect.height / svgRect.height;
-            
-            currentZoom = Math.min(scaleX, scaleY) * 0.9; // 90% to add some padding
+            currentZoom = 1;
             currentPan = { x: 0, y: 0 };
             
-            updateTransform();
+            // Same as reset - fits entire SVG area
+            const { width, height } = calculateStarmapDimensions();
+            svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            
+            updateZoomIndicator();
+            
+            // Use requestAnimationFrame to ensure viewBox change is processed before redraw
+            requestAnimationFrame(() => {
+                redrawStarmap();
+            });
         }
 
-        function updateTransform() {
-            // With the new scaling system, we apply zoom and pan to the entire SVG viewBox
-            if (!currentGameData || !svgElement) return;
-            
-            const { width, height } = calculateStarmapDimensions();
-            const viewBoxWidth = width / currentZoom;
-            const viewBoxHeight = height / currentZoom;
-            const viewBoxX = -currentPan.x / currentZoom;
-            const viewBoxY = -currentPan.y / currentZoom;
-            
-            svgElement.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+        // Helper function to get current zoom level consistently
+        function getCurrentZoomLevel() {
+            try {
+                if (!svgElement) return 1;
+                const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+                const [, , vbWidth] = viewBox;
+                const { width } = calculateStarmapDimensions();
+                if (width > 0 && vbWidth > 0) {
+                    const zoomLevel = width / vbWidth;
+                    console.log(`Zoom level calculated: ${zoomLevel.toFixed(2)}, viewBox width: ${vbWidth}, SVG width: ${width}`);
+                    return zoomLevel;
+                }
+            } catch (error) {
+                console.log('Error calculating zoom level:', error.message);
+            }
+            console.log('Using default zoom level: 1');
+            return 1;
+        }
+
+        function updateZoomIndicator() {
+            const indicator = document.getElementById('zoomIndicator');
+            if (indicator) {
+                // Calculate actual zoom level based on viewBox vs SVG dimensions
+                const viewBox = svgElement.getAttribute('viewBox').split(' ').map(parseFloat);
+                const [, , vbWidth] = viewBox;
+                const { width } = calculateStarmapDimensions();
+                const actualZoom = width / vbWidth;
+                
+                const percentage = Math.round(actualZoom * 100);
+                indicator.textContent = `${percentage}%`;
+                
+                // Add visual feedback for extreme zoom levels
+                indicator.className = '';
+                if (actualZoom <= 0.1) {
+                    indicator.className = 'zoom-min';
+                } else if (actualZoom >= 15) {
+                    indicator.className = 'zoom-max';
+                }
+            }
         }
     </script>
 </body>
