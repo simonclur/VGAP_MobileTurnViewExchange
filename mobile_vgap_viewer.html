@@ -320,10 +320,14 @@
             const gameInfoElement = document.getElementById('gameInfo');
             const gameDetailsElement = document.getElementById('gameDetails');
             
+            // IMPORTANT: Player ID and Race ID are different!
+            // Player ID uniquely identifies the player in the game - used for ownership
+            // Race ID identifies which race the player is playing (Federation, Klingon, etc.)
             // Extract race name from races array
             let raceName = 'Unknown';
             if (gameData.rst?.races && gameData.rst?.player?.raceid) {
-                const playerRace = gameData.rst.races.find(race => race.id === gameData.rst.player.raceid);
+                const raceId = parseInt(gameData.rst.player.raceid, 10);
+                const playerRace = gameData.rst.races.find(race => parseInt(race.id, 10) === raceId);
                 if (playerRace) {
                     raceName = playerRace.shortname || playerRace.name || 'Unknown';
                 }
@@ -336,7 +340,8 @@
                 'Turn': gameData.rst?.settings?.turn || 'Unknown',
                 'Player Name': gameData.rst?.player?.username || 'Unknown',
                 'Race': raceName,
-                'Player ID': gameData.rst?.player?.raceid || 'Unknown',
+                'Player ID': gameData.rst?.player?.id || 'Unknown',
+                'Race ID': gameData.rst?.player?.raceid || 'Unknown',
                 'Account ID': gameData.rst?.player?.accountid || 'Unknown',
                 'Turn Ready': gameData.rst?.player?.turnready ? 'Yes' : 'No',
                 'Ships': Array.isArray(gameData.rst?.ships) ? gameData.rst.ships.length : 0,

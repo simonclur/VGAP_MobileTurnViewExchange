@@ -276,6 +276,16 @@
             height: 16px;
             border: 1px solid #fff;
         }
+        
+        .legend-info {
+            background: rgba(0, 21, 25, 0.7);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            color: #00d4ff;
+            font-size: 0.9em;
+            text-align: center;
+        }
 
         .tooltip {
             position: absolute;
@@ -413,20 +423,24 @@
 
         <div id="legend" class="legend hidden">
             <h3>🗺️ Starmap Legend</h3>
+            <div id="playerInfoLegend" class="legend-info">
+                <p id="playerNameDisplay">Loading player information...</p>
+                <p style="margin-top: 5px; font-size: 0.8em; font-style: italic;">Ownership is determined by Player ID (not Race ID)</p>
+            </div>
             <div class="legend-grid">
                 <div class="legend-section">
                     <h4>Planets</h4>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #4caf50;"></div>
-                        <span>My Planets (Happy: >70%)</span>
+                        <span>Your Planets (Happy: >70%)</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #ffeb3b;"></div>
-                        <span>My Planets (Moderate: 40-70%)</span>
+                        <div class="legend-color" style="background: #8bc34a;"></div>
+                        <span>Your Planets (Moderate: 40-70%)</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #f44336;"></div>
-                        <span>My Planets (Unhappy: <40%)</span>
+                        <div class="legend-color" style="background: #a5d6a7;"></div>
+                        <span>Your Planets (Unhappy: <40%)</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #ff5722;"></div>
@@ -442,7 +456,7 @@
                     <h4>Starbases</h4>
                     <div class="legend-item">
                         <div class="legend-shape" style="background: #00d4ff; transform: rotate(45deg);"></div>
-                        <span>My Starbases</span>
+                        <span>Your Starbases</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-shape" style="background: #f44336; transform: rotate(45deg);"></div>
@@ -454,7 +468,7 @@
                     <h4>Ships</h4>
                     <div class="legend-item">
                         <div class="legend-shape" style="background: #00ff00; width: 12px; height: 4px; border-radius: 2px;"></div>
-                        <span>My Ships</span>
+                        <span>Your Ships</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-shape" style="background: #ff4444; width: 12px; height: 4px; border-radius: 2px;"></div>
@@ -495,10 +509,10 @@
 
         // Color schemes
         const Colors = {
-            // Planets by happiness
-            PLANET_HAPPY: '#4caf50',      // Green (>70%)
-            PLANET_MODERATE: '#ffeb3b',   // Yellow (40-70%)
-            PLANET_UNHAPPY: '#f44336',    // Red (<40%)
+            // Planets by happiness - all in shades of green
+            PLANET_HAPPY: '#4caf50',      // Bright green (>70%)
+            PLANET_MODERATE: '#8bc34a',   // Medium green (40-70%)
+            PLANET_UNHAPPY: '#a5d6a7',    // Light green (<40%)
             PLANET_ENEMY: '#ff5722',      // Orange
             PLANET_NEUTRAL: '#9e9e9e',    // Gray
             
@@ -516,6 +530,9 @@
             
             // Notes
             NOTE_COLOR: '#ffeb3b',        // Yellow
+            
+            // Allied objects
+            ALLIED: '#4a90e2',           // Blue
         };
 
         // Initialize
@@ -603,6 +620,17 @@
                     if (!jsonData.rst || !jsonData.rst.settings) {
                         throw new Error('Invalid VGAP turn file format');
                     }
+                    
+                    // Extract player information
+                    const playerInfo = jsonData.rst?.player || {};
+                    const playerRaceId = parseInt(playerInfo.raceid, 10) || 0;
+                    const playerName = playerInfo.username || 'Unknown';
+                    
+                    console.log(`Sample data loaded successfully:`);
+                    console.log(`- Game: ${jsonData.rst?.settings?.name || 'Unknown'}`);
+                    console.log(`- Player: ${playerName} (Race ID: ${playerRaceId})`);
+                    console.log(`- Planets: ${jsonData.rst?.planets?.length || 0}`);
+                    console.log(`- Ships: ${jsonData.rst?.ships?.length || 0}`);
 
                     currentGameData = jsonData;
                     initializeStarmap();
@@ -635,12 +663,30 @@
                     if (!jsonData.rst || !jsonData.rst.settings) {
                         throw new Error('Invalid VGAP turn file format');
                     }
+                    
+                    // Extract player information
+                    const playerInfo = jsonData.rst?.player || {};
+                    const playerRaceId = parseInt(playerInfo.raceid, 10) || 0;
+                    const playerName = playerInfo.username || 'Unknown';
+                    const gameName = jsonData.rst?.settings?.name || 'Unknown Game';
+                    
+                    console.log(`Turn data loaded successfully:`);
+                    console.log(`- Game: ${gameName} (Turn: ${jsonData.rst?.settings?.turn || '?'})`);
+                    console.log(`- Player: ${playerName} (Race ID: ${playerRaceId})`);
+                    console.log(`- Planets: ${jsonData.rst?.planets?.length || 0}`);
+                    console.log(`- Ships: ${jsonData.rst?.ships?.length || 0}`);
+                    
+                    if (playerRaceId === 0) {
+                        console.warn("WARNING: No player race ID detected in turn data!");
+                        showStatus('Turn data loaded, but player race ID not found. Ownership detection may be incorrect.', 'info');
+                    } else {
+                        showStatus(`Turn data for ${gameName} loaded successfully! 🎉`, 'success');
+                    }
 
                     currentGameData = jsonData;
                     initializeStarmap();
                     
-                    showStatus('Turn data loaded successfully! 🎉', 'success');
-                    setTimeout(hideStatus, 3000);
+                    setTimeout(hideStatus, 4000);
 
                 } catch (error) {
                     showStatus(`Error reading file: ${error.message}`, 'error');
@@ -663,11 +709,75 @@
             document.getElementById('starmapContainer').classList.remove('hidden');
             document.getElementById('legend').classList.remove('hidden');
             
+            // Extract and validate player information
+            const playerInfo = currentGameData.rst?.player || {};
+            const playerId = parseInt(playerInfo.id, 10) || 0;
+            const playerRaceId = parseInt(playerInfo.raceid, 10) || 0;
+            const playerName = playerInfo.username || 'Unknown';
+            const raceName = playerInfo.racename || 'Unknown Race';
+            
+            console.log(`Initializing starmap for player: ${playerName} (Player ID: ${playerId}, Race: ${raceName}, Race ID: ${playerRaceId})`);
+            
+            // Debug: Examine the structure of the game data to ensure we're accessing properties correctly
+            console.log("Game data structure check:");
+            console.log("- Player information:", currentGameData.rst?.player);
+            console.log("- Player ID:", playerId);
+            console.log("- Player race ID:", playerRaceId);
+            
+            // Check a sample planet and ship to verify property access
+            const samplePlanet = (currentGameData.rst?.planets || [])[0];
+            const sampleShip = (currentGameData.rst?.ships || [])[0];
+            
+            if (samplePlanet) {
+                console.log("- Sample planet structure:", samplePlanet);
+                console.log("- Planet owner ID:", samplePlanet.ownerid);
+            }
+            
+            if (sampleShip) {
+                console.log("- Sample ship structure:", sampleShip);
+                console.log("- Ship owner ID:", sampleShip.ownerid);
+            }
+            
             // Calculate starmap dimensions based on game data
             const { width, height } = calculateStarmapDimensions();
             svgElement.setAttribute('width', width);
             svgElement.setAttribute('height', height);
             svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            
+            // Display player information in UI if available
+            const gameTitle = document.querySelector('h1');
+            if (gameTitle && playerId > 0) {
+                const gameName = currentGameData.rst?.settings?.name || 'Unknown Game';
+                const raceName = playerInfo.racename || 'Unknown Race';
+                
+                // Update the main title
+                gameTitle.textContent = `🌌 VGAP Starmap - ${playerName}`;
+                
+                // Add game name as a subtitle
+                const subtitle = document.createElement('div');
+                subtitle.textContent = `${gameName} - Playing as ${raceName}`;
+                subtitle.style.fontSize = '0.7em';
+                subtitle.style.opacity = '0.8';
+                subtitle.style.marginTop = '5px';
+                
+                // Clear existing content and add title with subtitle
+                gameTitle.innerHTML = '';
+                const mainTitle = document.createElement('span');
+                mainTitle.textContent = `🌌 VGAP Starmap - ${playerName}`;
+                gameTitle.appendChild(mainTitle);
+                gameTitle.appendChild(document.createElement('br'));
+                gameTitle.appendChild(subtitle);
+                
+                // Update player info in the legend
+                const playerInfoHtml = `
+                    <span>${playerName} (${raceName})</span><br>
+                    <span style="font-size: 0.9em; opacity: 0.9;">Player ID: ${playerId} | Race ID: ${playerRaceId}</span>
+                `;
+                document.getElementById('playerNameDisplay').innerHTML = playerInfoHtml;
+            } else {
+                // Handle case where player info is not available
+                document.getElementById('playerNameDisplay').innerHTML = '<span>Unknown Player</span>';
+            }
             
             redrawStarmap();
         }
@@ -779,7 +889,23 @@
             svgElement.innerHTML = '';
 
             const { width, height } = calculateStarmapDimensions();
-            const playerRaceId = currentGameData.rst?.player?.raceid;
+            
+            // Extract player information properly
+            const playerInfo = currentGameData.rst?.player || {};
+            const playerId = parseInt(playerInfo.id, 10) || 0;
+            const playerRaceId = parseInt(playerInfo.raceid, 10) || 0;
+            
+            // Debug: Log the player object structure for verification
+            console.log("Player info summary:");
+            console.log("- Player ID:", playerId);
+            console.log("- Race ID:", playerRaceId);
+            console.log("- Username:", playerInfo.username || 'Unknown');
+            console.log("- Race name:", playerInfo.racename || 'Unknown');
+            
+            // Add a fallback for missing player data
+            if (playerId === 0) {
+                console.warn("Player ID not found in turn data! Using neutral view.");
+            }
             
             // Update SVG dimensions
             svgElement.setAttribute('width', width);
@@ -808,17 +934,17 @@
             
             // Draw planets
             if (document.getElementById('showPlanets').checked) {
-                drawPlanets(svgElement, playerRaceId, drawingContext);
+                drawPlanets(svgElement, playerId, drawingContext);
             }
             
             // Draw starbases
             if (document.getElementById('showStarbases').checked) {
-                drawStarbases(svgElement, playerRaceId, drawingContext);
+                drawStarbases(svgElement, playerId, drawingContext);
             }
             
             // Draw ships
             if (document.getElementById('showShips').checked) {
-                drawShips(svgElement, playerRaceId, drawingContext);
+                drawShips(svgElement, playerId, drawingContext);
             }
             
             // Draw strategic notes
@@ -856,7 +982,7 @@
             });
         }
 
-        function drawPlanets(parent, playerRaceId, drawingContext) {
+        function drawPlanets(parent, playerId, drawingContext) {
             const planets = currentGameData.rst?.planets || [];
             const starbases = currentGameData.rst?.starbases || [];
             const starbaseMap = {};
@@ -877,14 +1003,14 @@
             
             planets.forEach((planet, index) => {
                 // Draw main planet at its actual position
-                drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerRaceId, index < 3);
+                drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerId, index < 3);
                 
                 // Draw wrap-around copies for edge planets
-                drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerRaceId);
+                drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerId);
             });
         }
         
-        function drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerRaceId, showDebug = false) {
+        function drawSinglePlanet(parent, planet, starbaseMap, scaleX, scaleY, playerId, showDebug = false) {
             const cx = scaleX(planet.x || 0);
             const cy = scaleY(planet.y || 0);
             
@@ -913,7 +1039,7 @@
                 circle.setAttribute("cx", cx);
                 circle.setAttribute("cy", cy);
                 circle.setAttribute("r", radiusPx);
-                circle.setAttribute("fill", getPlanetColor(planet, playerRaceId));
+                circle.setAttribute("fill", getPlanetColor(planet, playerId));
                 circle.setAttribute("stroke", "#ffffff");
                 circle.setAttribute("stroke-width", "1");
                 circle.style.cursor = "pointer";
@@ -928,28 +1054,49 @@
                 label.setAttribute("font-weight", "bold");
                 label.textContent = (planet.name || `Planet ${planet.id}`).substring(0, 12);
                 
+                // Find ships at this planet
+                const ships = currentGameData.rst?.ships || [];
+                const shipsAtPlanet = ships.filter(ship => 
+                    parseInt(ship.x, 10) === parseInt(planet.x, 10) && 
+                    parseInt(ship.y, 10) === parseInt(planet.y, 10)
+                );
+                
+                let tooltipData = {
+                    'ID': planet.id,
+                    'Owner': getOwnerName(planet.ownerid, playerId),
+                    'Location': `(${planet.x}, ${planet.y})`,
+                    'Colonists': `${(planet.colonists || 0).toLocaleString()}`,
+                    'Natives': `${(planet.nativeclans || 0).toLocaleString()}`,
+                    'Factories': planet.factories || 0,
+                    'Mines': planet.mines || 0,
+                    'Defense': planet.defense || 0,
+                    'Happiness': `${planet.colonisthappypoints || 0}%`,
+                    'Starbase': starbaseMap[planet.id] ? 'Yes' : 'No',
+                    'Minerals': `N:${planet.neutronium || 0} D:${planet.duranium || 0} T:${planet.tritanium || 0} M:${planet.molybdenum || 0}`
+                };
+                
+                // Add ships at this location if any
+                if (shipsAtPlanet.length > 0) {
+                    tooltipData['Ships at Location'] = `${shipsAtPlanet.length} ship(s)`;
+                    
+                    // Add information about each ship
+                    shipsAtPlanet.forEach((ship, index) => {
+                        const isMyShip = parseInt(ship.ownerid, 10) === parseInt(playerId, 10);
+                        const shipPrefix = isMyShip ? '🟢' : '🔴';
+                        tooltipData[`Ship ${index + 1}`] = `${shipPrefix} ${ship.name || 'Unnamed'} (${ship.hullname || 'Unknown Hull'})`;
+                    });
+                }
+                
                 addTooltipToElement(circle, {
                     title: `🪐 ${planet.name || 'Unnamed Planet'}`,
-                    data: {
-                        'ID': planet.id,
-                        'Owner': getOwnerName(planet.ownerid, playerRaceId),
-                        'Location': `(${planet.x}, ${planet.y})`,
-                        'Colonists': `${(planet.colonists || 0).toLocaleString()}`,
-                        'Natives': `${(planet.nativeclans || 0).toLocaleString()}`,
-                        'Factories': planet.factories || 0,
-                        'Mines': planet.mines || 0,
-                        'Defense': planet.defense || 0,
-                        'Happiness': `${planet.colonisthappypoints || 0}%`,
-                        'Starbase': starbaseMap[planet.id] ? 'Yes' : 'No',
-                        'Minerals': `N:${planet.neutronium || 0} D:${planet.duranium || 0} T:${planet.tritanium || 0} M:${planet.molybdenum || 0}`
-                    }
+                    data: tooltipData
                 });
                 
                 parent.appendChild(circle);
                 parent.appendChild(label);
         }
         
-        function drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerRaceId) {
+        function drawWrapAroundCopies(parent, planet, starbaseMap, scaleX, scaleY, mapWidth, mapHeight, playerId) {
             const x = planet.x || 0;
             const y = planet.y || 0;
             
@@ -980,26 +1127,50 @@
                     
                     // Create a wrapped version of the planet
                     const wrappedPlanet = { ...planet, x: wrappedX, y: wrappedY };
-                    drawSinglePlanet(parent, wrappedPlanet, starbaseMap, scaleX, scaleY, playerRaceId, false);
+                    drawSinglePlanet(parent, wrappedPlanet, starbaseMap, scaleX, scaleY, playerId, false);
                 }
             });
         }
 
-        function drawStarbases(parent, playerRaceId, drawingContext) {
+        function drawStarbases(parent, playerId, drawingContext) {
             // Starbases are now drawn as part of drawPlanets function (as highlighted squares)
             // This function is kept for consistency but doesn't need to do anything
             // since we're following the dashboard pattern of showing starbases as planet highlights
         }
 
-        function drawShips(parent, playerRaceId, drawingContext) {
+        function drawShips(parent, playerId, drawingContext) {
             const ships = currentGameData.rst?.ships || [];
             const planets = currentGameData.rst?.planets || [];
             const { scaleX, scaleY } = drawingContext;
             
+            // Safely parse playerId to a number
+            const playerIdNum = parseInt(playerId, 10) || 0;
+            
+            console.log(`Drawing ${ships.length} ships with playerId=${playerIdNum}`);
+            
+            // Debug: Log the first few ships and directly examine the ship structure
+            if (ships.length > 0) {
+                console.log("First ship raw data:", ships[0]);
+                console.log("First few ships:", ships.slice(0, 3).map(s => {
+                    // Safely parse ownerid to a number
+                    const ownerIdNum = parseInt(s.ownerid, 10) || 0;
+                    return { 
+                        name: s.name,
+                        ownerid: s.ownerid,
+                        owneridNum: ownerIdNum,
+                        playerId: playerIdNum,
+                        isPlayerShip: ownerIdNum === playerIdNum
+                    };
+                }));
+            }
+            
             ships.forEach(ship => {
                 const cx = scaleX(ship.x || 0);
                 const cy = scaleY(ship.y || 0);
-                const isMine = ship.ownerid === playerRaceId;
+                
+                // Safely parse ship owner ID to ensure proper comparison
+                const shipOwnerIdNum = parseInt(ship.ownerid, 10) || 0;
+                const isMine = shipOwnerIdNum === playerIdNum;
                 
                 // Check if ship is at a planet (like dashboard)
                 const atPlanet = planets.find(p => 
@@ -1021,7 +1192,7 @@
                         title: `🚢 ${ship.name || 'Unnamed Ship'}`,
                         data: {
                             'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerRaceId),
+                            'Owner': getOwnerName(ship.ownerid, playerId),
                             'Hull': ship.hullname || 'Unknown',
                             'Location': `(${ship.x}, ${ship.y})`,
                             'At Planet': atPlanet.name || atPlanet.id,
@@ -1048,7 +1219,7 @@
                         title: `🚢 ${ship.name || 'Unnamed Ship'}`,
                         data: {
                             'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerRaceId),
+                            'Owner': getOwnerName(ship.ownerid, playerId),
                             'Hull': ship.hullname || 'Unknown',
                             'Location': `(${ship.x}, ${ship.y})`,
                             'Mass': `${ship.mass || 0} kt`,
@@ -1099,29 +1270,121 @@
         }
 
         // Helper functions
-        function getOwnerName(ownerId, playerRaceId) {
-            if (ownerId === 0) return 'Unowned';
-            if (ownerId === playerRaceId) return 'Mine';
-            return `Player ${ownerId}`;
+        function getPlayerRaceId() {
+            // Safely extract and parse the player race ID from the current game data
+            const playerInfo = currentGameData?.rst?.player || {};
+            const playerRaceId = playerInfo.raceid;
+            
+            // Parse the race ID to a number and return 0 if invalid
+            const parsedRaceId = parseInt(playerRaceId, 10) || 0;
+            
+            if (parsedRaceId === 0) {
+                console.warn("Warning: Could not determine player race ID from turn data");
+            } else {
+                console.log(`Player race ID identified: ${parsedRaceId}`);
+            }
+            
+            return parsedRaceId;
+        }
+        
+        function getPlayerId() {
+            // Safely extract and parse the player ID from the current game data
+            const playerInfo = currentGameData?.rst?.player || {};
+            const playerId = playerInfo.id;
+            
+            // Parse the player ID to a number and return 0 if invalid
+            const parsedPlayerId = parseInt(playerId, 10) || 0;
+            
+            if (parsedPlayerId === 0) {
+                console.warn("Warning: Could not determine player ID from turn data");
+            } else {
+                console.log(`Player ID identified: ${parsedPlayerId}`);
+            }
+            
+            return parsedPlayerId;
+        }
+        
+        function getPlayerInfo() {
+            // Get comprehensive player information from turn data
+            const playerInfo = currentGameData?.rst?.player || {};
+            return {
+                id: parseInt(playerInfo.id, 10) || 0,
+                raceId: parseInt(playerInfo.raceid, 10) || 0,
+                username: playerInfo.username || 'Unknown',
+                raceName: playerInfo.racename || 'Unknown Race',
+                planetCount: parseInt(playerInfo.planetcount, 10) || 0,
+                shipCount: parseInt(playerInfo.shipcount, 10) || 0,
+                isAuthenticated: !!playerInfo.authenticated
+            };
+        }
+        
+        function getOwnerName(ownerId, playerId) {
+            // Safely parse to numbers for proper comparison
+            const ownerIdNum = parseInt(ownerId, 10) || 0;
+            const playerIdNum = parseInt(playerId, 10) || 0;
+            
+            if (ownerIdNum === 0) return 'Unowned';
+            if (ownerIdNum === playerIdNum) return 'Mine';
+            
+            // Could add alliance check here
+            // if (checkIfAlly(ownerIdNum)) return 'Ally';
+            
+            return `Player ${ownerIdNum}`;
         }
 
-        function getPlanetColor(planet, playerRaceId) {
-            if (planet.ownerid === 0) return Colors.PLANET_NEUTRAL;
-            if (planet.ownerid !== playerRaceId) return Colors.PLANET_ENEMY;
+        function getPlanetColor(planet, playerId) {
+            // Player ID is now passed directly as a parameter
+            // No need to call getPlayerId() again
+            
+            // Safely access ownerid, ensuring it's properly read as a number
+            const ownerId = parseInt(planet.ownerid, 10) || 0;
+            
+            // Check if the planet is owned by the player (comparing player IDs, not race IDs)
+            const isMyPlanet = ownerId === playerId && playerId > 0;
+            
+            if (ownerId === 0) return Colors.PLANET_NEUTRAL;
+            if (!isMyPlanet) {
+                // Check if this is an ally (could implement alliance check here if needed)
+                // const isAlly = checkIfAlly(ownerId); // Would need to implement this function
+                // if (isAlly) return Colors.ALLIED;
+                return Colors.PLANET_ENEMY;
+            }
             
             // Color by happiness for my planets
-            const happiness = planet.colonisthappypoints || 0;
+            const happiness = parseInt(planet.colonisthappypoints, 10) || 0;
             if (happiness >= 70) return Colors.PLANET_HAPPY;
             if (happiness >= 40) return Colors.PLANET_MODERATE;
             return Colors.PLANET_UNHAPPY;
         }
 
-        function getStarbaseColor(ownerId, playerRaceId) {
-            return ownerId === playerRaceId ? Colors.STARBASE_MINE : Colors.STARBASE_ENEMY;
+        function getStarbaseColor(ownerId, playerId) {
+            // Player ID is now passed directly as a parameter
+            // No need to call getPlayerId() again
+            
+            // Safely parse values to ensure proper comparison
+            const ownerIdNum = parseInt(ownerId, 10) || 0;
+            
+            const isPlayerStarbase = ownerIdNum === playerId && playerId > 0;
+            
+            return isPlayerStarbase ? Colors.STARBASE_MINE : Colors.STARBASE_ENEMY;
+            
+            // Could add alliance check here if needed
+            // if (checkIfAlly(ownerIdNum)) return Colors.ALLIED;
         }
 
-        function getShipColor(ownerId, playerRaceId) {
-            return ownerId === playerRaceId ? Colors.SHIP_MINE : Colors.SHIP_ENEMY;
+        function getShipColor(ownerId, playerId) {
+            // Player ID is now passed directly as a parameter
+            // No need to call getPlayerId() again
+            
+            // Safely parse values to ensure proper comparison
+            const ownerIdNum = parseInt(ownerId, 10) || 0;
+            
+            const isPlayerShip = ownerIdNum === playerId && playerId > 0;
+            
+            return isPlayerShip ? Colors.SHIP_MINE : Colors.SHIP_ENEMY;
+            
+            // Could add alliance check here if needed
+            // if (checkIfAlly(ownerIdNum)) return Colors.ALLIED;
         }
 
         function getPlanetRadius(planet) {
