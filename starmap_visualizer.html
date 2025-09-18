@@ -1171,7 +1171,10 @@
                     shipsAtPlanet.forEach((ship, index) => {
                         const isMyShip = parseInt(ship.ownerid, 10) === parseInt(playerId, 10);
                         const shipPrefix = isMyShip ? '🟢' : '🔴';
-                        tooltipData[`Ship ${index + 1}`] = `${shipPrefix} ${ship.name || 'Unnamed'} (${ship.hullname || 'Unknown Hull'})`;
+                        const hullInfo = getHullInfo(ship.hullid);
+                        const raceInfo = getPlayerRace(ship.ownerid);
+                        const hullName = hullInfo ? hullInfo.name : (ship.hullname || 'Unknown Hull');
+                        tooltipData[`Ship ${index + 1}`] = `${shipPrefix} ${ship.name || 'Unnamed'} (${hullName})${raceInfo ? ' - ' + raceInfo : ''}`;
                     });
                 }
                 
@@ -1295,19 +1298,50 @@
                         circle.setAttribute("stroke-width", 2 * zoomScale);
                         circle.style.cursor = "pointer";
                         
+                        // Get enhanced hull and race information
+                        const hullInfo = getHullInfo(ship.hullid);
+                        const raceInfo = getPlayerRace(ship.ownerid);
+                        const shipTitle = hullInfo ? `🚢 ${ship.name || 'Unnamed Ship'} (${hullInfo.name})` : `🚢 ${ship.name || 'Unnamed Ship'}`;
+                        
+                        // Get weapon information
+                        const beamInfo = getBeamInfo(ship.beamid);
+                        const torpedoInfo = getTorpedoInfo(ship.torpedoid);
+                        
+                        const tooltipData = {
+                            'ID': ship.id,
+                            'Owner': getOwnerName(ship.ownerid, playerId),
+                            'Race': raceInfo || 'Unknown',
+                            'Hull': hullInfo ? hullInfo.name : (ship.hullname || 'Unknown'),
+                            'Hull Mass': hullInfo ? `${hullInfo.mass || 0} kt` : 'Unknown',
+                            'Hull Cargo': hullInfo ? `${hullInfo.cargo || 0} kt` : 'Unknown',
+                            'Location': `(${ship.x}, ${ship.y})`,
+                            'At Planet': atPlanet.name || atPlanet.id,
+                            'Mass': `${ship.mass || 0} kt`,
+                            'Fuel': `${ship.neutronium || 0} kt`,
+                            'Crew': ship.crew || 0,
+                            'Damage': `${ship.damage || 0}%`
+                        };
+                        
+                        // Add weapon information if available
+                        if (ship.beams > 0) {
+                            tooltipData['Beams'] = beamInfo ? 
+                                `${ship.beams} ${beamInfo.name} (Dmg: ${beamInfo.damage})` : 
+                                `${ship.beams}`;
+                        }
+                        
+                        if (ship.torps > 0) {
+                            tooltipData['Torpedoes'] = torpedoInfo ? 
+                                `${ship.torps} ${torpedoInfo.name} (Dmg: ${torpedoInfo.damage})` : 
+                                `${ship.torps}`;
+                        }
+                        
+                        if (ship.fighters > 0) {
+                            tooltipData['Fighters'] = ship.fighters;
+                        }
+                        
                         addTooltipToElement(circle, {
-                            title: `🚢 ${ship.name || 'Unnamed Ship'}`,
-                            data: {
-                                'ID': ship.id,
-                                'Owner': getOwnerName(ship.ownerid, playerId),
-                                'Hull': ship.hullname || 'Unknown',
-                                'Location': `(${ship.x}, ${ship.y})`,
-                                'At Planet': atPlanet.name || atPlanet.id,
-                                'Mass': `${ship.mass || 0} kt`,
-                                'Fuel': `${ship.neutronium || 0} kt`,
-                                'Crew': ship.crew || 0,
-                                'Damage': `${ship.damage || 0}%`
-                            }
+                            title: shipTitle,
+                            data: tooltipData
                         });
                         
                         parent.appendChild(circle);
@@ -1326,18 +1360,50 @@
                         dot.setAttribute("stroke-width", 1 * zoomScale);
                         dot.style.cursor = "pointer";
                         
+                        // Get enhanced hull and race information
+                        const hullInfo = getHullInfo(ship.hullid);
+                        const raceInfo = getPlayerRace(ship.ownerid);
+                        const shipTitle = hullInfo ? `🚢 ${ship.name || 'Unnamed Ship'} (${hullInfo.name})` : `🚢 ${ship.name || 'Unnamed Ship'}`;
+                        
+                        // Get weapon information
+                        const beamInfo = getBeamInfo(ship.beamid);
+                        const torpedoInfo = getTorpedoInfo(ship.torpedoid);
+                        
+                        const tooltipData = {
+                            'ID': ship.id,
+                            'Owner': getOwnerName(ship.ownerid, playerId),
+                            'Race': raceInfo || 'Unknown',
+                            'Hull': hullInfo ? hullInfo.name : (ship.hullname || 'Unknown'),
+                            'Hull Mass': hullInfo ? `${hullInfo.mass || 0} kt` : 'Unknown',
+                            'Hull Cargo': hullInfo ? `${hullInfo.cargo || 0} kt` : 'Unknown',
+                            'Hull Tech': hullInfo ? `Level ${hullInfo.techlevel || hullInfo.tech || 0}` : 'Unknown',
+                            'Location': `(${ship.x}, ${ship.y})`,
+                            'Mass': `${ship.mass || 0} kt`,
+                            'Fuel': `${ship.neutronium || 0} kt`,
+                            'Crew': ship.crew || 0,
+                            'Damage': `${ship.damage || 0}%`
+                        };
+                        
+                        // Add weapon information if available
+                        if (ship.beams > 0) {
+                            tooltipData['Beams'] = beamInfo ? 
+                                `${ship.beams} ${beamInfo.name} (Dmg: ${beamInfo.damage})` : 
+                                `${ship.beams}`;
+                        }
+                        
+                        if (ship.torps > 0) {
+                            tooltipData['Torpedoes'] = torpedoInfo ? 
+                                `${ship.torps} ${torpedoInfo.name} (Dmg: ${torpedoInfo.damage})` : 
+                                `${ship.torps}`;
+                        }
+                        
+                        if (ship.fighters > 0) {
+                            tooltipData['Fighters'] = ship.fighters;
+                        }
+                        
                         addTooltipToElement(dot, {
-                            title: `🚢 ${ship.name || 'Unnamed Ship'}`,
-                            data: {
-                                'ID': ship.id,
-                                'Owner': getOwnerName(ship.ownerid, playerId),
-                                'Hull': ship.hullname || 'Unknown',
-                                'Location': `(${ship.x}, ${ship.y})`,
-                                'Mass': `${ship.mass || 0} kt`,
-                                'Fuel': `${ship.neutronium || 0} kt`,
-                                'Crew': ship.crew || 0,
-                                'Damage': `${ship.damage || 0}%`
-                            }
+                            title: shipTitle,
+                            data: tooltipData
                         });
                         
                         parent.appendChild(dot);
@@ -1449,6 +1515,59 @@
             // if (checkIfAlly(ownerIdNum)) return 'Ally';
             
             return `Player ${ownerIdNum}`;
+        }
+
+        function getHullInfo(hullId) {
+            if (!hullId) return null;
+            const hulls = currentGameData.rst?.hulls || [];
+            return hulls.find(hull => parseInt(hull.id, 10) === parseInt(hullId, 10));
+        }
+
+        function getRaceInfo(raceId) {
+            if (!raceId) return null;
+            const races = currentGameData.rst?.races || [];
+            return races.find(race => parseInt(race.id, 10) === parseInt(raceId, 10));
+        }
+
+        function getPlayerRace(ownerId) {
+            // First find the player by ownerId
+            const players = currentGameData.rst?.players || [];
+            const player = players.find(p => parseInt(p.id, 10) === parseInt(ownerId, 10));
+            
+            if (!player) return null;
+            
+            // Then find the race by the player's raceid
+            const races = currentGameData.rst?.races || [];
+            const race = races.find(r => parseInt(r.id, 10) === parseInt(player.raceid, 10));
+            return race ? race.adjective || race.name || race.shortname : null;
+        }
+
+        // Get beam weapon information from beam ID
+        function getBeamInfo(beamId) {
+            if (!beamId || beamId === 0) return null;
+            const beams = currentGameData.rst?.beams || [];
+            return beams.find(beam => parseInt(beam.id, 10) === parseInt(beamId, 10));
+        }
+
+        // Get torpedo weapon information from torpedo ID
+        function getTorpedoInfo(torpedoId) {
+            if (!torpedoId || torpedoId === 0) return null;
+            const torpedos = currentGameData.rst?.torpedos || [];
+            return torpedos.find(torpedo => parseInt(torpedo.id, 10) === parseInt(torpedoId, 10));
+        }
+
+        // Get beam weapon information from beam ID
+        function getBeamInfo(beamId) {
+            if (!beamId || beamId === 0) return null;
+            const beams = currentGameData.rst?.beams || [];
+            return beams.find(beam => parseInt(beam.id, 10) === parseInt(beamId, 10));
+        }
+
+        // Get torpedo weapon information from torpedo ID
+        function getTorpedoInfo(torpedoId) {
+            if (!torpedoId || torpedoId === 0) return null;
+            const torpedos = currentGameData.rst?.torpedos || [];
+            return torpedos.find(torpedo => parseInt(torpedo.id, 10) === parseInt(torpedoId, 10));
         }
 
         function getPlanetColor(planet, playerId) {

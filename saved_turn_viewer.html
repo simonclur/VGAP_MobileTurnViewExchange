@@ -807,6 +807,83 @@
         }
 
         // Show status message
+        // Helper functions for hull and race information
+        function getHullInfo(hullId, gameData) {
+            if (!hullId) return null;
+            const hulls = gameData.rst?.hulls || [];
+            return hulls.find(hull => parseInt(hull.id, 10) === parseInt(hullId, 10));
+        }
+
+        function getRaceInfo(raceId, gameData) {
+            if (!raceId) return null;
+            const races = gameData.rst?.races || [];
+            return races.find(race => parseInt(race.id, 10) === parseInt(raceId, 10));
+        }
+
+        function getPlayerRace(ownerId, gameData) {
+            // First find the player by ownerId
+            const players = gameData.rst?.players || [];
+            const player = players.find(p => parseInt(p.id, 10) === parseInt(ownerId, 10));
+            
+            if (!player) return null;
+            
+            // Then find the race by the player's raceid
+            const races = gameData.rst?.races || [];
+            const race = races.find(r => parseInt(r.id, 10) === parseInt(player.raceid, 10));
+            return race ? race.adjective || race.name || race.shortname : null;
+        }
+
+        function getOwnerDisplayName(ownerId, playerId, gameData) {
+            if (!ownerId) return "Unknown";
+            const ownerIdNum = parseInt(ownerId, 10);
+            const playerIdNum = parseInt(playerId, 10);
+            
+            if (ownerIdNum === playerIdNum) {
+                return "You";
+            }
+            
+            const raceInfo = getPlayerRace(ownerId, gameData);
+            if (raceInfo) {
+                return raceInfo;
+            }
+            
+            return `Player ${ownerIdNum}`;
+        }
+
+        // Get starbase mission name from mission ID
+        function getStarbaseMissionName(missionId) {
+            const missions = {
+                0: 'None',
+                1: 'Refuel Ships',
+                2: 'Maximize Defense',
+                3: 'Load Torpedoes Onto Ships',
+                4: 'Unload Incoming Ships',
+                5: 'Repair Base',
+                6: 'Force Surrender',
+                7: 'Send Fighters to Galaxy',
+                8: 'Gather Debris',
+                9: 'Send Money to Galaxy',
+                10: 'Receive Money from Galaxy',
+                11: 'Send Fighters',
+                12: 'Receive Fighters'
+            };
+            return missions[parseInt(missionId, 10)] || `Mission ${missionId}`;
+        }
+
+        // Get beam weapon information from beam ID
+        function getBeamInfo(beamId, gameData) {
+            if (!beamId || beamId === 0) return null;
+            const beams = gameData.rst?.beams || [];
+            return beams.find(beam => parseInt(beam.id, 10) === parseInt(beamId, 10));
+        }
+
+        // Get torpedo weapon information from torpedo ID
+        function getTorpedoInfo(torpedoId, gameData) {
+            if (!torpedoId || torpedoId === 0) return null;
+            const torpedos = gameData.rst?.torpedos || [];
+            return torpedos.find(torpedo => parseInt(torpedo.id, 10) === parseInt(torpedoId, 10));
+        }
+
         function showStatus(message, type = 'loading') {
             const statusElement = document.getElementById('status');
             statusElement.textContent = message;
@@ -825,7 +902,6 @@
             const fileDetailsElement = document.getElementById('fileDetails');
             
             const fileSize = (file.size / 1024).toFixed(2);
-            const gameId = data.rst?.settings?.id || 'Unknown';
             const turn = data.rst?.settings?.turn || 'Unknown';
             
             fileDetailsElement.innerHTML = `
@@ -834,9 +910,6 @@
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">File Size:</span> ${fileSize} KB
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Game ID:</span> ${gameId}
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Turn:</span> ${turn}
@@ -869,7 +942,6 @@
             // Extract key game information
             const gameInfo = {
                 'Game Name': gameData.rst?.settings?.name || 'Unknown',
-                'Game ID': gameData.rst?.settings?.id || 'Unknown',
                 'Turn': gameData.rst?.settings?.turn || 'Unknown',
                 'Player Name': gameData.rst?.player?.username || 'Unknown',
                 'Race': raceName,
@@ -976,32 +1048,32 @@
             // Initialize table sorting for all tables
             if (ownedPlanets.length > 0) {
                 const myPlanetsTable = document.querySelector('#my-planets-tab table.planets-table');
-                if (myPlanetsTable) initializeTableSorting(myPlanetsTable, ownedPlanets, 'planets', planets, starbases);
+                if (myPlanetsTable) initializeTableSorting(myPlanetsTable, ownedPlanets, 'planets', gameData, planets, starbases);
             }
 
             if (myStarbases.length > 0) {
                 const myStarbasesTable = document.querySelector('#my-starbases-tab table.starbases-table');
-                if (myStarbasesTable) initializeTableSorting(myStarbasesTable, myStarbases, 'starbases', planets, starbases);
+                if (myStarbasesTable) initializeTableSorting(myStarbasesTable, myStarbases, 'starbases', gameData, planets, starbases);
             }
 
             if (enemyStarbases.length > 0) {
                 const enemyStarbasesTable = document.querySelector('#enemy-starbases-tab table.starbases-table');
-                if (enemyStarbasesTable) initializeTableSorting(enemyStarbasesTable, enemyStarbases, 'starbases', planets, starbases);
+                if (enemyStarbasesTable) initializeTableSorting(enemyStarbasesTable, enemyStarbases, 'starbases', gameData, planets, starbases);
             }
 
             if (enemyPlanets.length > 0) {
                 const enemyPlanetsTable = document.querySelector('#enemy-planets-tab table.planets-table');
-                if (enemyPlanetsTable) initializeTableSorting(enemyPlanetsTable, enemyPlanets, 'planets', planets, starbases);
+                if (enemyPlanetsTable) initializeTableSorting(enemyPlanetsTable, enemyPlanets, 'planets', gameData, planets, starbases);
             }
 
             if (myShips.length > 0) {
                 const myShipsTable = document.querySelector('#my-ships-tab table.ships-table');
-                if (myShipsTable) initializeTableSorting(myShipsTable, myShips, 'ships', planets, starbases);
+                if (myShipsTable) initializeTableSorting(myShipsTable, myShips, 'ships', gameData, planets, starbases);
             }
 
             if (enemyShips.length > 0) {
                 const enemyShipsTable = document.querySelector('#enemy-ships-tab table.ships-table');
-                if (enemyShipsTable) initializeTableSorting(enemyShipsTable, enemyShips, 'ships', planets, starbases);
+                if (enemyShipsTable) initializeTableSorting(enemyShipsTable, enemyShips, 'ships', gameData, planets, starbases);
             }
         }
 
@@ -1085,7 +1157,7 @@
         let currentSort = { column: null, direction: 'asc' };
 
         // Generic sorting function
-        function sortData(data, column, direction = 'asc') {
+        function sortData(data, column, direction = 'asc', gameData = null) {
             try {
                 return [...data].sort((a, b) => {
                     let aVal, bVal;
@@ -1124,13 +1196,14 @@
                     case 'mass':
                     case 'damage':
                     case 'beams':
-                    case 'torpedoes':
+                    case 'torps':
                     case 'hull':
                     case 'engines':
                     case 'enginetechlevel':
                     case 'hulltechlevel':
                     case 'torptechlevel':
                     case 'beamtechlevel':
+                    case 'mission':
                         aVal = parseInt(a[column], 10);
                         bVal = parseInt(b[column], 10);
                         // Handle -1 values (unknown data) by treating as 0
@@ -1152,8 +1225,32 @@
                         bVal = (b[column] || '').toLowerCase();
                         break;
                     case 'hullname':
-                        aVal = (a.hullname || '').toLowerCase();
-                        bVal = (b.hullname || '').toLowerCase();
+                        // For hull column, get the computed hull name for sorting
+                        const aHullInfoName = gameData ? getHullInfo(a.hullid, gameData) : null;
+                        const bHullInfoName = gameData ? getHullInfo(b.hullid, gameData) : null;
+                        aVal = aHullInfoName ? (aHullInfoName.name || '').toLowerCase() : (a.hullname || '').toLowerCase();
+                        bVal = bHullInfoName ? (bHullInfoName.name || '').toLowerCase() : (b.hullname || '').toLowerCase();
+                        break;
+                    case 'ownerid':
+                        // For race column, get the race name for sorting
+                        const aRaceInfo = gameData ? getPlayerRace(a.ownerid, gameData) : null;
+                        const bRaceInfo = gameData ? getPlayerRace(b.ownerid, gameData) : null;
+                        aVal = (aRaceInfo || getOwnerDisplayName(a.ownerid, gameData?.rst?.player?.id, gameData) || '').toLowerCase();
+                        bVal = (bRaceInfo || getOwnerDisplayName(b.ownerid, gameData?.rst?.player?.id, gameData) || '').toLowerCase();
+                        break;
+                    case 'hullmass':
+                        // For hull mass column, get the hull mass
+                        const aHullInfoMass = gameData ? getHullInfo(a.hullid, gameData) : null;
+                        const bHullInfoMass = gameData ? getHullInfo(b.hullid, gameData) : null;
+                        aVal = aHullInfoMass ? (aHullInfoMass.mass || 0) : 0;
+                        bVal = bHullInfoMass ? (bHullInfoMass.mass || 0) : 0;
+                        break;
+                    case 'hullcargo':
+                        // For hull cargo column, get the hull cargo
+                        const aHullInfoCargo = gameData ? getHullInfo(a.hullid, gameData) : null;
+                        const bHullInfoCargo = gameData ? getHullInfo(b.hullid, gameData) : null;
+                        aVal = aHullInfoCargo ? (aHullInfoCargo.cargo || 0) : 0;
+                        bVal = bHullInfoCargo ? (bHullInfoCargo.cargo || 0) : 0;
                         break;
                     default:
                         aVal = a[column] || '';
@@ -1178,7 +1275,7 @@
         }
 
         // Initialize table sorting
-        function initializeTableSorting(tableElement, data, tableType, planets = null, starbases = null) {
+        function initializeTableSorting(tableElement, data, tableType, gameData, planets = null, starbases = null) {
             const headers = tableElement.querySelectorAll('th[data-column]');
 
             headers.forEach((header) => {
@@ -1204,8 +1301,8 @@
                         header.classList.add(`sort-${currentSort.direction}`);
 
                         // Sort and re-render table
-                        const sortedData = sortData(data, column, currentSort.direction);
-                        updateTableContent(tableElement, sortedData, tableType, planets, starbases);
+                        const sortedData = sortData(data, column, currentSort.direction, gameData);
+                        updateTableContent(tableElement, sortedData, tableType, gameData, planets, starbases);
                     } catch (error) {
                         console.error('Error in sort click handler:', error);
                     }
@@ -1214,7 +1311,7 @@
         }
 
         // Update table content after sorting
-        function updateTableContent(tableElement, data, tableType, planets = null, starbases = null) {
+        function updateTableContent(tableElement, data, tableType, gameData, planets = null, starbases = null) {
             const tbody = tableElement.querySelector('tbody');
             if (!tbody) {
                 console.error('No tbody found in table element');
@@ -1265,20 +1362,42 @@
                         parseInt(p.y, 10) === parseInt(ship.y, 10)
                     );
                     const planetName = planetAtLocation ? (planetAtLocation.name || `Planet ${planetAtLocation.id}`) : 'None';
+                    
+                    // Get enhanced hull and race information
+                    const hullInfo = getHullInfo(ship.hullid, gameData);
+                    const raceInfo = getPlayerRace(ship.ownerid, gameData);
+                    const shipDisplayName = hullInfo ? `${ship.name || 'Unnamed'} (${hullInfo.name})` : (ship.name || 'Unnamed');
+
+                    // Get weapon information
+                    const beamInfo = getBeamInfo(ship.beamid, gameData);
+                    const torpedoInfo = getTorpedoInfo(ship.torpedoid, gameData);
+                    
+                    // Format beam display
+                    const beamDisplay = ship.beams > 0 && beamInfo ? 
+                        `${ship.beams} ${beamInfo.name}` : 
+                        `${ship.beams || 0}`;
+                    
+                    // Format torpedo display  
+                    const torpedoDisplay = ship.torps > 0 && torpedoInfo ?
+                        `${ship.torps} ${torpedoInfo.name}` :
+                        `${ship.torps || 0}`;
 
                     return `
                         <tr>
-                            <td class="ship-name" title="${ship.name || 'Unnamed'}">${(ship.name || 'Unnamed').substring(0, 12)}</td>
+                            <td class="ship-name" title="${shipDisplayName}">${shipDisplayName.substring(0, 18)}</td>
                             <td>${ship.id}</td>
-                            <td>${ship.hullname || 'Unknown'}</td>
+                            <td>${raceInfo || getOwnerDisplayName(ship.ownerid, gameData.rst?.player?.id, gameData)}</td>
+                            <td>${hullInfo ? hullInfo.name : (ship.hullname || 'Unknown')}</td>
+                            <td>${hullInfo ? hullInfo.mass || 0 : 0} kt</td>
+                            <td>${hullInfo ? hullInfo.cargo || 0 : 0} kt</td>
                             <td>(${ship.x || 0}, ${ship.y || 0})</td>
                             <td>${planetName}</td>
                             <td>${ship.crew || 0}</td>
                             <td>${ship.mass || 0} kt</td>
                             <td>${ship.neutronium || 0} kt</td>
                             <td class="${ship.damage > 40 ? 'resource-low' : 'resource-high'}">${ship.damage || 0}%</td>
-                            <td>${ship.beams || 0}</td>
-                            <td>${ship.torpedoes || 0}</td>
+                            <td title="${beamInfo ? `${beamInfo.name} (Damage: ${beamInfo.damage}, Kill: ${beamInfo.crewkill})` : ''}">${beamDisplay}</td>
+                            <td title="${torpedoInfo ? `${torpedoInfo.name} (Damage: ${torpedoInfo.damage}, Kill: ${torpedoInfo.crewkill})` : ''}">${torpedoDisplay}</td>
                             <td>${ship.fighters || 0}</td>
                         </tr>
                     `;
@@ -1300,7 +1419,7 @@
                             <td class="${getTechClass(starbase.torptechlevel || 0)}">${starbase.torptechlevel || 0}</td>
                             <td class="${getTechClass(starbase.beamtechlevel || 0)}">${starbase.beamtechlevel || 0}</td>
                             <td class="${(starbase.damage || 0) > 40 ? 'resource-low' : 'resource-high'}">${starbase.damage || 0}%</td>
-                            <td>${starbase.mission || 0}</td>
+                            <td title="${starbase.mission || 0}">${getStarbaseMissionName(starbase.mission || 0)}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1470,15 +1589,18 @@
             const headers = [
                 { text: 'Name', column: 'name' },
                 { text: 'ID', column: 'id' },
+                { text: 'Race', column: 'ownerid' },
                 { text: 'Hull', column: 'hullname' },
+                { text: 'Mass', column: 'hullmass' },
+                { text: 'Cargo', column: 'hullcargo' },
                 { text: 'Loc', column: 'x' },
                 { text: 'Planet', column: null },
                 { text: 'Crew', column: 'crew' },
-                { text: 'Mass', column: 'mass' },
+                { text: 'Ship Mass', column: 'mass' },
                 { text: 'Fuel', column: 'neutronium' },
                 { text: 'Damage', column: 'damage' },
                 { text: 'Beams', column: 'beams' },
-                { text: 'Torpedoes', column: 'torpedoes' },
+                { text: 'Torpedoes', column: 'torps' },
                 { text: 'Fighters', column: 'fighters' }
             ];
             
@@ -1501,19 +1623,41 @@
                             );
                             const planetName = planetAtLocation ? (planetAtLocation.name || `Planet ${planetAtLocation.id}`) : 'None';
                             
+                            // Get enhanced hull and race information
+                            const hullInfo = getHullInfo(ship.hullid, currentGameData);
+                            const raceInfo = getPlayerRace(ship.ownerid, currentGameData);
+                            const shipDisplayName = hullInfo ? `${ship.name || 'Unnamed'} (${hullInfo.name})` : (ship.name || 'Unnamed');
+                            
+                            // Get weapon information
+                            const beamInfo = getBeamInfo(ship.beamid, currentGameData);
+                            const torpedoInfo = getTorpedoInfo(ship.torpedoid, currentGameData);
+                            
+                            // Format beam display
+                            const beamDisplay = ship.beams > 0 && beamInfo ? 
+                                `${ship.beams} ${beamInfo.name}` : 
+                                `${ship.beams || 0}`;
+                            
+                            // Format torpedo display  
+                            const torpedoDisplay = ship.torps > 0 && torpedoInfo ?
+                                `${ship.torps} ${torpedoInfo.name}` :
+                                `${ship.torps || 0}`;
+                            
                             return `
                                 <tr>
-                                    <td class="ship-name" title="${ship.name || 'Unnamed'}">${(ship.name || 'Unnamed').substring(0, 12)}</td>
+                                    <td class="ship-name" title="${shipDisplayName}">${shipDisplayName.substring(0, 18)}</td>
                                     <td>${ship.id}</td>
-                                    <td>${ship.hullname || 'Unknown'}</td>
+                                    <td>${raceInfo || getOwnerDisplayName(ship.ownerid, currentGameData.rst?.player?.id, currentGameData)}</td>
+                                    <td>${hullInfo ? hullInfo.name : (ship.hullname || 'Unknown')}</td>
+                                    <td>${hullInfo ? hullInfo.mass || 0 : 0} kt</td>
+                                    <td>${hullInfo ? hullInfo.cargo || 0 : 0} kt</td>
                                     <td>(${ship.x || 0}, ${ship.y || 0})</td>
                                     <td>${planetName}</td>
                                     <td>${ship.crew || 0}</td>
                                     <td>${ship.mass || 0} kt</td>
                                     <td>${ship.neutronium || 0} kt</td>
                                     <td class="${ship.damage > 40 ? 'resource-low' : 'resource-high'}">${ship.damage || 0}%</td>
-                                    <td>${ship.beams || 0}</td>
-                                    <td>${ship.torpedoes || 0}</td>
+                                    <td title="${beamInfo ? `${beamInfo.name} (Damage: ${beamInfo.damage}, Kill: ${beamInfo.crewkill})` : ''}">${beamDisplay}</td>
+                                    <td title="${torpedoInfo ? `${torpedoInfo.name} (Damage: ${torpedoInfo.damage}, Kill: ${torpedoInfo.crewkill})` : ''}">${torpedoDisplay}</td>
                                     <td>${ship.fighters || 0}</td>
                                 </tr>
                             `;
@@ -1563,7 +1707,7 @@
                                     <td class="${getTechClass(starbase.torptechlevel || 0)}">${starbase.torptechlevel || 0}</td>
                                     <td class="${getTechClass(starbase.beamtechlevel || 0)}">${starbase.beamtechlevel || 0}</td>
                                     <td>${starbase.damage || 0}%</td>
-                                    <td>${starbase.mission || 0}</td>
+                                    <td title="${starbase.mission || 0}">${getStarbaseMissionName(starbase.mission || 0)}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -1682,10 +1826,9 @@
                 const url = URL.createObjectURL(blob);
                 
                 // Create filename
-                const gameId = currentGameData.rst?.settings?.id || 'unknown';
                 const turn = currentGameData.rst?.settings?.turn || 'unknown';
                 const timestamp = new Date().toISOString().slice(0, 16).replace(/[:-]/g, '');
-                const filename = currentFileName || `vgap_game${gameId}_turn${turn}_${timestamp}.json`;
+                const filename = currentFileName || `vgap_turn${turn}_${timestamp}.json`;
                 
                 // Create download link and trigger download
                 const a = document.createElement('a');
