@@ -437,6 +437,39 @@
             opacity: 0.6;
         }
 
+        .temp-extreme {
+            color: #ff5722;
+            font-weight: bold;
+        }
+
+        .temp-hot {
+            color: #ff9800;
+        }
+
+        .temp-moderate {
+            color: #8bc34a;
+        }
+
+        .temp-cool {
+            color: #03a9f4;
+        }
+
+        .temp-cold {
+            color: #2196f3;
+            font-weight: bold;
+        }
+
+        .friendly-code {
+            font-family: monospace;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .native-race, .native-gov {
+            font-size: 11px;
+            font-style: italic;
+        }
+
         .section-divider {
             margin: 20px 0;
             border-top: 2px solid rgba(0, 212, 255, 0.3);
@@ -658,6 +691,7 @@
             <div class="tab-buttons">
                 <button class="tab-button active" data-tab="my-planets">🪐 My Planets</button>
                 <button class="tab-button" data-tab="my-starbases">🏭 My Starbases</button>
+                <button class="tab-button" data-tab="enemy-starbases">🏭 Enemy Starbases</button>
                 <button class="tab-button" data-tab="enemy-planets">🌍 Enemy Planets</button>
                 <button class="tab-button" data-tab="my-ships">🚢 My Ships</button>
                 <button class="tab-button" data-tab="enemy-ships">🚢 Enemy Ships</button>
@@ -703,6 +737,15 @@
             if (happiness >= 70) return 'happiness-high';
             if (happiness >= 40) return 'happiness-medium';
             return 'happiness-low';
+        }
+
+        function getTempClass(temp) {
+            const temperature = parseInt(temp, 10) || 0;
+            if (temperature >= 85) return 'temp-extreme';
+            if (temperature >= 70) return 'temp-hot';
+            if (temperature >= 30) return 'temp-moderate';
+            if (temperature >= 15) return 'temp-cool';
+            return 'temp-cold';
         }
 
         function getTechClass(level) {
@@ -859,15 +902,30 @@
 
             // Get player ID for ownership checks
             const playerId = parseInt(gameData.rst?.player?.id, 10) || 0;
+            const playerRaceId = parseInt(gameData.rst?.player?.raceid, 10) || 0;
             
             // Filter data by ownership
             const planets = gameData.rst?.planets || [];
             const starbases = gameData.rst?.starbases || [];
             const ships = gameData.rst?.ships || [];
 
+            console.log('Starbases data:', starbases);
+
             const ownedPlanets = planets.filter(planet => parseInt(planet.ownerid, 10) === playerId);
             const enemyPlanets = planets.filter(planet => parseInt(planet.ownerid, 10) !== playerId && parseInt(planet.ownerid, 10) !== 0);
-            const myStarbases = starbases.filter(sb => parseInt(sb.ownerid, 10) === playerId);
+            
+            // Filter starbases by planet ownership
+            const myStarbases = starbases.filter(sb => {
+                const planet = planets.find(p => p.id === sb.planetid);
+                return planet && parseInt(planet.ownerid, 10) === playerId;
+            });
+            const enemyStarbases = starbases.filter(sb => {
+                const planet = planets.find(p => p.id === sb.planetid);
+                return planet && parseInt(planet.ownerid, 10) !== playerId && parseInt(planet.ownerid, 10) !== 0;
+            });
+            
+            console.log(`Found ${starbases.length} total starbases, ${myStarbases.length} owned by player, ${enemyStarbases.length} enemy starbases`);
+            
             const myShips = ships.filter(ship => parseInt(ship.ownerid, 10) === playerId);
             const enemyShips = ships.filter(ship => parseInt(ship.ownerid, 10) !== playerId && parseInt(ship.ownerid, 10) !== 0);
             
@@ -881,6 +939,11 @@
                 <div id="my-starbases-tab" class="tab-section">
                     <h3>🏭 My Starbases (${myStarbases.length})</h3>
                     ${myStarbases.length > 0 ? createStarbasesTable(myStarbases, planets) : '<p>No starbases found.</p>'}
+                </div>
+
+                <div id="enemy-starbases-tab" class="tab-section">
+                    <h3>🏭 Enemy Starbases (${enemyStarbases.length})</h3>
+                    ${enemyStarbases.length > 0 ? createStarbasesTable(enemyStarbases, planets) : '<p>No enemy starbases found.</p>'}
                 </div>
 
                 <div id="enemy-planets-tab" class="tab-section">
@@ -919,6 +982,11 @@
             if (myStarbases.length > 0) {
                 const myStarbasesTable = document.querySelector('#my-starbases-tab table.starbases-table');
                 if (myStarbasesTable) initializeTableSorting(myStarbasesTable, myStarbases, 'starbases', planets, starbases);
+            }
+
+            if (enemyStarbases.length > 0) {
+                const enemyStarbasesTable = document.querySelector('#enemy-starbases-tab table.starbases-table');
+                if (enemyStarbasesTable) initializeTableSorting(enemyStarbasesTable, enemyStarbases, 'starbases', planets, starbases);
             }
 
             if (enemyPlanets.length > 0) {
@@ -1018,26 +1086,29 @@
 
         // Generic sorting function
         function sortData(data, column, direction = 'asc') {
-            return [...data].sort((a, b) => {
-                let aVal, bVal;
+            try {
+                return [...data].sort((a, b) => {
+                    let aVal, bVal;
 
-                // Handle different column types
-                switch (column) {
-                    case 'name':
-                        aVal = (a.name || '').toLowerCase();
-                        bVal = (b.name || '').toLowerCase();
-                        break;
-                    case 'id':
-                        aVal = parseInt(a.id, 10) || 0;
-                        bVal = parseInt(b.id, 10) || 0;
-                        break;
-                    case 'x':
-                    case 'y':
-                        aVal = parseInt(a[column], 10) || 0;
-                        bVal = parseInt(b[column], 10) || 0;
-                        break;
+                    // Handle different column types
+                    switch (column) {
+                        case 'name':
+                            aVal = (a.name || '').toLowerCase();
+                            bVal = (b.name || '').toLowerCase();
+                            break;
+                        case 'id':
+                            aVal = parseInt(a.id, 10) || 0;
+                            bVal = parseInt(b.id, 10) || 0;
+                            break;
+                        case 'x':
+                        case 'y':
+                            aVal = parseInt(a[column], 10) || 0;
+                            bVal = parseInt(b[column], 10) || 0;
+                            break;
                     case 'colonists':
+                    case 'clans':
                     case 'nativeclans':
+                    case 'temp':
                     case 'factories':
                     case 'mines':
                     case 'defense':
@@ -1056,13 +1127,29 @@
                     case 'torpedoes':
                     case 'hull':
                     case 'engines':
-                    case 'hyperspace':
+                    case 'enginetechlevel':
+                    case 'hulltechlevel':
+                    case 'torptechlevel':
+                    case 'beamtechlevel':
+                        aVal = parseInt(a[column], 10);
+                        bVal = parseInt(b[column], 10);
+                        // Handle -1 values (unknown data) by treating as 0
+                        if (isNaN(aVal) || aVal === -1) aVal = 0;
+                        if (isNaN(bVal) || bVal === -1) bVal = 0;
+                        break;
+                    case 'colonisthappypoints':
+                    case 'nativehappypoints':
                         aVal = parseInt(a[column], 10) || 0;
                         bVal = parseInt(b[column], 10) || 0;
                         break;
-                    case 'colonisthappypoints':
-                        aVal = parseInt(a[column], 10) || 0;
-                        bVal = parseInt(b[column], 10) || 0;
+                    case 'friendlycode':
+                        aVal = (a[column] || '').toUpperCase();
+                        bVal = (b[column] || '').toUpperCase();
+                        break;
+                    case 'nativeracename':
+                    case 'nativegovernmentname':
+                        aVal = (a[column] || '').toLowerCase();
+                        bVal = (b[column] || '').toLowerCase();
                         break;
                     case 'hullname':
                         aVal = (a.hullname || '').toLowerCase();
@@ -1084,6 +1171,10 @@
                 if (aVal > bVal) return direction === 'asc' ? 1 : -1;
                 return 0;
             });
+            } catch (error) {
+                console.error('Error in sortData:', error);
+                return [...data]; // Return unsorted data if error occurs
+            }
         }
 
         // Initialize table sorting
@@ -1095,25 +1186,29 @@
                 if (!column) return;
 
                 header.addEventListener('click', () => {
-                    // Toggle sort direction if same column, otherwise set to ascending
-                    if (currentSort.column === column) {
-                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        currentSort.column = column;
-                        currentSort.direction = 'asc';
+                    try {
+                        // Toggle sort direction if same column, otherwise set to ascending
+                        if (currentSort.column === column) {
+                            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            currentSort.column = column;
+                            currentSort.direction = 'asc';
+                        }
+
+                        // Clear previous sort indicators
+                        tableElement.querySelectorAll('th').forEach(h => {
+                            h.classList.remove('sort-asc', 'sort-desc');
+                        });
+
+                        // Add sort indicator to clicked header
+                        header.classList.add(`sort-${currentSort.direction}`);
+
+                        // Sort and re-render table
+                        const sortedData = sortData(data, column, currentSort.direction);
+                        updateTableContent(tableElement, sortedData, tableType, planets, starbases);
+                    } catch (error) {
+                        console.error('Error in sort click handler:', error);
                     }
-
-                    // Clear previous sort indicators
-                    tableElement.querySelectorAll('th').forEach(h => {
-                        h.classList.remove('sort-asc', 'sort-desc');
-                    });
-
-                    // Add sort indicator to clicked header
-                    header.classList.add(`sort-${currentSort.direction}`);
-
-                    // Sort and re-render table
-                    const sortedData = sortData(data, column, currentSort.direction);
-                    updateTableContent(tableElement, sortedData, tableType, planets, starbases);
                 });
             });
         }
@@ -1121,9 +1216,15 @@
         // Update table content after sorting
         function updateTableContent(tableElement, data, tableType, planets = null, starbases = null) {
             const tbody = tableElement.querySelector('tbody');
+            if (!tbody) {
+                console.error('No tbody found in table element');
+                return;
+            }
+            
             let newContent = '';
 
-            if (tableType === 'planets') {
+            try {
+                if (tableType === 'planets') {
                 newContent = data.map(planet => {
                     const hasStarbase = starbases?.some(sb => sb.planetid === planet.id);
                     const totalMinerals = calculateTotalMinerals(planet);
@@ -1133,12 +1234,17 @@
                             <td class="planet-name" title="${planet.name || 'Unnamed'}">${(planet.name || 'Unnamed').substring(0, 12)}</td>
                             <td>${planet.id}</td>
                             <td>(${planet.x || 0}, ${planet.y || 0})</td>
-                            <td>${(planet.colonists || 0).toLocaleString()}</td>
+                            <td class="friendly-code">${planet.friendlycode || ''}</td>
+                            <td class="${getTempClass(planet.temp >= 0 ? planet.temp : 0)}">${planet.temp >= 0 ? planet.temp + '°' : '?'}</td>
+                            <td>${(planet.clans || 0).toLocaleString()}</td>
                             <td>${(planet.nativeclans || 0).toLocaleString()}</td>
+                            <td class="native-race">${planet.nativeracename || '-'}</td>
+                            <td class="native-gov">${planet.nativegovernmentname || '-'}</td>
                             <td class="${getResourceClass(planet.factories || 0, 'factories')}">${planet.factories || 0}</td>
                             <td>${planet.mines || 0}</td>
                             <td class="${getResourceClass(planet.defense || 0, 'defense')}">${planet.defense || 0}</td>
                             <td class="${getHappinessClass(planet.colonisthappypoints || 0)}">${planet.colonisthappypoints || 0}%</td>
+                            <td class="${getHappinessClass(planet.nativehappypoints || 0)}">${planet.nativehappypoints || 0}%</td>
                             <td class="${hasStarbase ? 'starbase-yes' : 'starbase-no'}">${hasStarbase ? 'Yes' : 'No'}</td>
                             <td>${planet.neutronium || 0}</td>
                             <td>${planet.duranium || 0}</td>
@@ -1186,21 +1292,24 @@
                         <tr>
                             <td class="planet-name" title="${planetName}">${planetName.substring(0, 12)}</td>
                             <td>${starbase.id}</td>
-                            <td>(${starbase.x || 0}, ${starbase.y || 0})</td>
+                            <td>(${planet?.x || 0}, ${planet?.y || 0})</td>
                             <td class="${getResourceClass(starbase.defense || 0, 'defense')}">${starbase.defense || 0}</td>
                             <td>${starbase.fighters || 0}</td>
-                            <td>${starbase.engines || 0}</td>
-                            <td>${starbase.hull || 0}</td>
-                            <td>${starbase.torpedoes || 0}</td>
-                            <td>${starbase.beams || 0}</td>
+                            <td class="${getTechClass(starbase.enginetechlevel || 0)}">${starbase.enginetechlevel || 0}</td>
+                            <td class="${getTechClass(starbase.hulltechlevel || 0)}">${starbase.hulltechlevel || 0}</td>
+                            <td class="${getTechClass(starbase.torptechlevel || 0)}">${starbase.torptechlevel || 0}</td>
+                            <td class="${getTechClass(starbase.beamtechlevel || 0)}">${starbase.beamtechlevel || 0}</td>
                             <td class="${(starbase.damage || 0) > 40 ? 'resource-low' : 'resource-high'}">${starbase.damage || 0}%</td>
-                            <td>${starbase.mission || 'None'}</td>
+                            <td>${starbase.mission || 0}</td>
                         </tr>
                     `;
                 }).join('');
             }
 
             tbody.innerHTML = newContent;
+            } catch (error) {
+                console.error('Error updating table content:', error);
+            }
         }
 
         // Create enhanced planets section
@@ -1229,8 +1338,11 @@
             const sortedUnownedPlanets = sortPlanets([...unownedPlanets]);
             const sortedNeutralPlanets = sortPlanets([...neutralPlanets]);
             
-            // Filter and sort starbases by player ID
-            const myStarbases = starbases.filter(starbase => parseInt(starbase.ownerid, 10) === playerId);
+            // Filter and sort starbases by planet ownership
+            const myStarbases = starbases.filter(starbase => {
+                const planet = planets.find(p => p.id === starbase.planetid);
+                return planet && parseInt(planet.ownerid, 10) === playerId;
+            });
             const sortedStarbases = sortStarbases([...myStarbases], planets);
             
             let html = '';
@@ -1284,12 +1396,17 @@
                 { text: 'Name', column: 'name' },
                 { text: 'ID', column: 'id' },
                 { text: 'Loc', column: 'x' },
-                { text: 'Col', column: 'colonists' },
+                { text: 'FC', column: 'friendlycode' },
+                { text: 'Temp', column: 'temp' },
+                { text: 'Col', column: 'clans' },
                 { text: 'Nat', column: 'nativeclans' },
+                { text: 'Race', column: 'nativeracename' },
+                { text: 'Gov', column: 'nativegovernmentname' },
                 { text: 'Fac', column: 'factories' },
                 { text: 'Mines', column: 'mines' },
                 { text: 'Def', column: 'defense' },
-                { text: 'Happy', column: 'colonisthappypoints' },
+                { text: 'Col Happy', column: 'colonisthappypoints' },
+                { text: 'Nat Happy', column: 'nativehappypoints' },
                 { text: 'SB', column: null },
                 { text: 'N', column: 'neutronium' },
                 { text: 'D', column: 'duranium' },
@@ -1319,12 +1436,17 @@
                                     <td class="planet-name" title="${planet.name || 'Unnamed'}">${(planet.name || 'Unnamed').substring(0, 12)}</td>
                                     <td>${planet.id}</td>
                                     <td>(${planet.x || 0}, ${planet.y || 0})</td>
-                                    <td>${(planet.colonists || 0).toLocaleString()}</td>
+                                    <td class="friendly-code">${planet.friendlycode || ''}</td>
+                                    <td class="${getTempClass(planet.temp >= 0 ? planet.temp : 0)}">${planet.temp >= 0 ? planet.temp + '°' : '?'}</td>
+                                    <td>${(planet.clans || 0).toLocaleString()}</td>
                                     <td>${(planet.nativeclans || 0).toLocaleString()}</td>
+                                    <td class="native-race">${planet.nativeracename || '-'}</td>
+                                    <td class="native-gov">${planet.nativegovernmentname || '-'}</td>
                                     <td class="${getResourceClass(planet.factories || 0, 'factories')}">${planet.factories || 0}</td>
                                     <td>${planet.mines || 0}</td>
                                     <td class="${getResourceClass(planet.defense || 0, 'defense')}">${planet.defense || 0}</td>
                                     <td class="${getHappinessClass(planet.colonisthappypoints || 0)}">${planet.colonisthappypoints || 0}%</td>
+                                    <td class="${getHappinessClass(planet.nativehappypoints || 0)}">${planet.nativehappypoints || 0}%</td>
                                     <td class="${hasStarbase ? 'starbase-yes' : 'starbase-no'}">${hasStarbase ? 'Yes' : 'No'}</td>
                                     <td>${planet.neutronium || 0}</td>
                                     <td>${planet.duranium || 0}</td>
@@ -1409,12 +1531,12 @@
                 { text: 'Loc', column: 'x' },
                 { text: 'Def', column: 'defense' },
                 { text: 'Fight', column: 'fighters' },
-                { text: 'Eng', column: 'engines' },
-                { text: 'Hull', column: 'hull' },
-                { text: 'Torp', column: 'torpedoes' },
-                { text: 'Beam', column: 'beams' },
+                { text: 'Eng', column: 'enginetechlevel' },
+                { text: 'Hull', column: 'hulltechlevel' },
+                { text: 'Torp', column: 'torptechlevel' },
+                { text: 'Beam', column: 'beamtechlevel' },
                 { text: 'Damage', column: 'damage' },
-                { text: 'Mission', column: null }
+                { text: 'Mission', column: 'mission' }
             ];
             
             return `
@@ -1432,14 +1554,14 @@
                             return `
                                 <tr>
                                     <td class="planet-name" title="${planetName}">${planetName ? planetName.substring(0, 12) : 'Unknown'}</td>
-                                    <td>${starbase.planetid}</td>
+                                    <td>${starbase.id}</td>
                                     <td>(${planet?.x || 0}, ${planet?.y || 0})</td>
                                     <td class="${getResourceClass(starbase.defense || 0, 'defense')}">${starbase.defense || 0}</td>
                                     <td>${starbase.fighters || 0}</td>
-                                    <td class="${getTechClass(starbase.enginetech || 0)}">${starbase.enginetech || 0}</td>
-                                    <td class="${getTechClass(starbase.hulltech || 0)}">${starbase.hulltech || 0}</td>
-                                    <td class="${getTechClass(starbase.torptech || 0)}">${starbase.torptech || 0}</td>
-                                    <td class="${getTechClass(starbase.beamtech || 0)}">${starbase.beamtech || 0}</td>
+                                    <td class="${getTechClass(starbase.enginetechlevel || 0)}">${starbase.enginetechlevel || 0}</td>
+                                    <td class="${getTechClass(starbase.hulltechlevel || 0)}">${starbase.hulltechlevel || 0}</td>
+                                    <td class="${getTechClass(starbase.torptechlevel || 0)}">${starbase.torptechlevel || 0}</td>
+                                    <td class="${getTechClass(starbase.beamtechlevel || 0)}">${starbase.beamtechlevel || 0}</td>
                                     <td>${starbase.damage || 0}%</td>
                                     <td>${starbase.mission || 0}</td>
                                 </tr>
