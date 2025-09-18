@@ -123,56 +123,44 @@
     <div class="loading-container">
         <h1>🚀 VGAP Tools</h1>
         <div class="spinner"></div>
-        <p>Loading VGAP Mobile Turn Viewer...</p>
-        <p>Redirecting you to the mobile-optimized planets.nu turn viewer.</p>
+        <p>Choose your VGAP tool:</p>
         
-        <a href="mobile_vgap_viewer.html" class="fallback-link">
-            Click here if not redirected automatically
-        </a>
+        <div style="margin: 30px 0; text-align: center;">
+            <a href="mobile_vgap_viewer.html" class="fallback-link" style="display: block; margin-bottom: 15px;">
+                🚀 Live Turn Loader - Load turns directly from planets.nu
+            </a>
+            <a href="saved_turn_viewer.html" class="fallback-link" style="display: block; margin-bottom: 15px;">
+                📁 Saved Turn Viewer - Analyze exported turn files
+            </a>
+            <a href="starmap_visualizer.html" class="fallback-link" style="display: block; margin-bottom: 15px;">
+                🌌 Starmap Visualizer - Interactive galaxy visualization
+            </a>
+        </div>
 
         <div class="features">
-            <h3>Features</h3>
+            <h3>Three Powerful VGAP Tools</h3>
             <ul>
+                <li><strong>🚀 Live Turn Loader:</strong> Direct planets.nu API integration with secure login</li>
+                <li><strong>📁 Saved Turn Viewer:</strong> Advanced planet analysis and resource categorization</li>
+                <li><strong>🌌 Starmap Visualizer:</strong> Interactive galaxy map with strategic overlays</li>
                 <li>Mobile-optimized for iOS and Android</li>
-                <li>Direct planets.nu API integration</li>
-                <li>Secure login with your planets.nu credentials</li>
-                <li>Complete turn data visualization</li>
-                <li>Export turn data as JSON files</li>
-                <li>Copy game data to clipboard</li>
+                <li>Export and analyze turn data as JSON files</li>
                 <li>Works offline after initial load</li>
-                <li>No installation required</li>
+                <li>No installation required - pure HTML5</li>
+                <li>Strategic planning tools and visualization</li>
             </ul>
         </div>
     </div>
 
     <script>
-        // Redirect to mobile viewer after a short delay for better UX
-        setTimeout(() => {
-            window.location.href = 'mobile_vgap_viewer.html';
-        }, 2000);
-
-        // Handle immediate click anywhere to redirect faster
-        document.addEventListener('click', () => {
-            window.location.href = 'mobile_vgap_viewer.html';
-        });
-
-        // Handle touch events for mobile devices
-        document.addEventListener('touchstart', () => {
-            window.location.href = 'mobile_vgap_viewer.html';
-        });
-
-        // Handle keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                window.location.href = 'mobile_vgap_viewer.html';
+        // Remove spinner after page loads
+        window.addEventListener('load', function() {
+            const spinner = document.querySelector('.spinner');
+            if (spinner) {
+                spinner.style.display = 'none';
             }
         });
-
-        // Preload the mobile viewer page for faster loading
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.href = 'mobile_vgap_viewer.html';
-        document.head.appendChild(link);
+    </script>
 
         // Add some debug info to console
         console.log('VGAP Tools Index - Redirecting to Mobile Turn Viewer');

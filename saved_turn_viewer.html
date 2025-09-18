@@ -260,6 +260,140 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        .planets-section {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .planets-section h4 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .planets-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+
+        .planets-table th,
+        .planets-table td {
+            padding: 6px 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .planets-table th {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .planets-table tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .planets-table tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .planet-name {
+            text-align: left !important;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .starbase-yes {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .starbase-no {
+            color: #dc3545;
+        }
+
+        .resource-high {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .resource-medium {
+            color: #ffc107;
+        }
+
+        .resource-low {
+            color: #dc3545;
+        }
+
+        .section-divider {
+            margin: 20px 0;
+            border-top: 2px solid rgba(0, 212, 255, 0.3);
+            padding-top: 20px;
+        }
+
+        .starbases-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .starbases-table th,
+        .starbases-table td {
+            padding: 6px 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .starbases-table th {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .starbases-table tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .starbases-table tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tech-high {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .tech-medium {
+            color: #ffc107;
+        }
+
+        .tech-low {
+            color: #dc3545;
+        }
+
+        @media (max-width: 1200px) {
+            .planets-table,
+            .starbases-table {
+                font-size: 10px;
+            }
+            
+            .planets-table th,
+            .planets-table td,
+            .starbases-table th,
+            .starbases-table td {
+                padding: 4px 2px;
+            }
+        }
+
         .navigation {
             text-align: center;
             margin-bottom: 20px;
@@ -332,6 +466,7 @@
         <div class="navigation">
             <a href="mobile_vgap_viewer.html" class="nav-link">🚀 Live Turn Loader</a>
             <a href="saved_turn_viewer.html" class="nav-link">📁 Saved Turn Viewer</a>
+            <a href="starmap_visualizer.html" class="nav-link">🌌 Starmap Visualizer</a>
         </div>
 
         <div class="upload-section">
@@ -377,6 +512,82 @@
     <script>
         let currentGameData = null;
         let currentFileName = null;
+
+        // Helper functions for planet analysis
+        function getResourceClass(value, type) {
+            if (type === 'factories') {
+                if (value >= 100) return 'resource-high';
+                if (value >= 50) return 'resource-medium';
+                return 'resource-low';
+            } else if (type === 'defense') {
+                if (value >= 50) return 'resource-high';
+                if (value >= 20) return 'resource-medium';
+                return 'resource-low';
+            } else if (type === 'minerals') {
+                if (value >= 1000) return 'resource-high';
+                if (value >= 500) return 'resource-medium';
+                return 'resource-low';
+            }
+            return '';
+        }
+
+        function getTechClass(level) {
+            if (level >= 8) return 'tech-high';
+            if (level >= 5) return 'tech-medium';
+            return 'tech-low';
+        }
+
+        function calculateTotalMinerals(planet) {
+            const neutronium = (planet.neutronium || 0) + (planet.densityneutronium || 0);
+            const duranium = (planet.duranium || 0) + (planet.densityduranium || 0);
+            const tritanium = (planet.tritanium || 0) + (planet.densitytritanium || 0);
+            const molybdenum = (planet.molybdenum || 0) + (planet.densitymolybdenum || 0);
+            return neutronium + duranium + tritanium + molybdenum;
+        }
+
+        function sortPlanets(planets) {
+            return planets.sort((a, b) => {
+                // First by factories (descending)
+                const factoryDiff = (b.factories || 0) - (a.factories || 0);
+                if (factoryDiff !== 0) return factoryDiff;
+                
+                // Then by defense (descending)
+                const defenseDiff = (b.defense || 0) - (a.defense || 0);
+                if (defenseDiff !== 0) return defenseDiff;
+                
+                // Then by total minerals (descending)
+                const totalMineralsA = calculateTotalMinerals(a);
+                const totalMineralsB = calculateTotalMinerals(b);
+                return totalMineralsB - totalMineralsA;
+            });
+        }
+
+        function sortStarbases(starbases, planets) {
+            return starbases.sort((a, b) => {
+                // First by defense (descending)
+                const defenseDiff = (b.defense || 0) - (a.defense || 0);
+                if (defenseDiff !== 0) return defenseDiff;
+                
+                // Then by fighters (descending)
+                const fighterDiff = (b.fighters || 0) - (a.fighters || 0);
+                if (fighterDiff !== 0) return fighterDiff;
+                
+                // Then by engine tech (descending)
+                const engineDiff = (b.enginetech || 0) - (a.enginetech || 0);
+                if (engineDiff !== 0) return engineDiff;
+                
+                // Then by hull tech (descending)
+                const hullDiff = (b.hulltech || 0) - (a.hulltech || 0);
+                if (hullDiff !== 0) return hullDiff;
+                
+                // Then by torpedo tech (descending)
+                const torpDiff = (b.torptech || 0) - (a.torptech || 0);
+                if (torpDiff !== 0) return torpDiff;
+                
+                // Finally by beam tech (descending)
+                return (b.beamtech || 0) - (a.beamtech || 0);
+            });
+        }
 
         // Show status message
         function showStatus(message, type = 'loading') {
@@ -468,6 +679,12 @@
         function showDataSections(gameData) {
             const dataSectionsElement = document.getElementById('dataSections');
             
+            // Create planets section first (most important)
+            let planetsHtml = '';
+            if (gameData.rst?.planets && Array.isArray(gameData.rst.planets)) {
+                planetsHtml = createPlanetsSection(gameData);
+            }
+            
             const sections = [
                 {
                     title: '🚢 Ships',
@@ -476,24 +693,6 @@
                         <strong>ID ${ship.id}:</strong> ${ship.name || 'Unnamed Ship'}<br>
                         <span style="opacity: 0.8;">Hull: ${ship.hullname || 'Unknown'} | Owner: ${ship.ownerid || 'Unknown'}</span><br>
                         <span style="opacity: 0.8;">Location: (${ship.x || 0}, ${ship.y || 0}) | Mass: ${ship.mass || 0} kt</span>
-                    `
-                },
-                {
-                    title: '🪐 Planets',
-                    data: gameData.rst?.planets || [],
-                    formatter: (planet) => `
-                        <strong>ID ${planet.id}:</strong> ${planet.name || 'Unnamed Planet'}<br>
-                        <span style="opacity: 0.8;">Owner: ${planet.ownerid || 'Unowned'} | Location: (${planet.x || 0}, ${planet.y || 0})</span><br>
-                        <span style="opacity: 0.8;">Colonists: ${planet.colonists || 0} | Supplies: ${planet.supplies || 0}</span>
-                    `
-                },
-                {
-                    title: '🏭 Starbases',
-                    data: gameData.rst?.starbases || [],
-                    formatter: (base) => `
-                        <strong>Planet ID ${base.planetid}:</strong> Starbase<br>
-                        <span style="opacity: 0.8;">Owner: ${base.ownerid || 'Unknown'} | Defense: ${base.defense || 0}</span><br>
-                        <span style="opacity: 0.8;">Tech Levels: E${base.enginetech || 0} H${base.hulltech || 0} B${base.beamtech || 0} T${base.torptech || 0}</span>
                     `
                 },
                 {
@@ -524,7 +723,7 @@
                 }
             ];
 
-            dataSectionsElement.innerHTML = sections
+            dataSectionsElement.innerHTML = planetsHtml + sections
                 .filter(section => section.data.length > 0)
                 .map(section => `
                     <div class="data-section">
@@ -539,6 +738,158 @@
                 `).join('');
             
             dataSectionsElement.classList.remove('hidden');
+        }
+
+        // Create enhanced planets section
+        function createPlanetsSection(gameData) {
+            const planets = gameData.rst?.planets || [];
+            const starbases = gameData.rst?.starbases || [];
+            const playerRaceId = gameData.rst?.player?.raceid;
+            
+            if (planets.length === 0) return '';
+            
+            // Separate owned and unowned planets
+            const ownedPlanets = planets.filter(planet => planet.ownerid === playerRaceId);
+            const unownedPlanets = planets.filter(planet => planet.ownerid !== playerRaceId && planet.ownerid !== 0);
+            const neutralPlanets = planets.filter(planet => planet.ownerid === 0);
+            
+            // Sort planets
+            const sortedOwnedPlanets = sortPlanets([...ownedPlanets]);
+            const sortedUnownedPlanets = sortPlanets([...unownedPlanets]);
+            const sortedNeutralPlanets = sortPlanets([...neutralPlanets]);
+            
+            // Sort starbases
+            const sortedStarbases = sortStarbases([...starbases], planets);
+            
+            let html = '';
+            
+            // Owned Planets Section
+            if (sortedOwnedPlanets.length > 0) {
+                html += `
+                    <div class="planets-section">
+                        <h4>🪐 My Planets (${sortedOwnedPlanets.length})</h4>
+                        ${createPlanetsTable(sortedOwnedPlanets, starbases)}
+                    </div>
+                `;
+            }
+            
+            // Starbases Section
+            if (sortedStarbases.length > 0) {
+                html += `
+                    <div class="planets-section">
+                        <h4>🏭 My Starbases (${sortedStarbases.length})</h4>
+                        ${createStarbasesTable(sortedStarbases, planets)}
+                    </div>
+                `;
+            }
+            
+            // Unowned Planets Section
+            if (sortedUnownedPlanets.length > 0) {
+                html += `
+                    <div class="planets-section">
+                        <h4>🌍 Enemy Planets (${sortedUnownedPlanets.length})</h4>
+                        ${createPlanetsTable(sortedUnownedPlanets, starbases)}
+                    </div>
+                `;
+            }
+            
+            // Neutral Planets Section
+            if (sortedNeutralPlanets.length > 0) {
+                html += `
+                    <div class="planets-section">
+                        <h4>⭐ Neutral Planets (${sortedNeutralPlanets.length})</h4>
+                        ${createPlanetsTable(sortedNeutralPlanets, starbases)}
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+        // Create planets table
+        function createPlanetsTable(planets, starbases) {
+            const headers = [
+                'Name', 'ID', 'Loc', 'Col', 'Nat', 'Fac', 'Mines', 'Def', 'SB',
+                'N', 'D', 'T', 'M', 'N⬇', 'D⬇', 'T⬇', 'M⬇', 'Tot'
+            ];
+            
+            return `
+                <table class="planets-table">
+                    <thead>
+                        <tr>
+                            ${headers.map(header => `<th>${header}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${planets.map(planet => {
+                            const hasStarbase = starbases.some(sb => sb.planetid === planet.id);
+                            const totalMinerals = calculateTotalMinerals(planet);
+                            
+                            return `
+                                <tr>
+                                    <td class="planet-name" title="${planet.name || 'Unnamed'}">${(planet.name || 'Unnamed').substring(0, 12)}</td>
+                                    <td>${planet.id}</td>
+                                    <td>(${planet.x || 0}, ${planet.y || 0})</td>
+                                    <td>${planet.colonists || 0}</td>
+                                    <td>${planet.nativeclans || 0}</td>
+                                    <td class="${getResourceClass(planet.factories || 0, 'factories')}">${planet.factories || 0}</td>
+                                    <td>${planet.mines || 0}</td>
+                                    <td class="${getResourceClass(planet.defense || 0, 'defense')}">${planet.defense || 0}</td>
+                                    <td class="${hasStarbase ? 'starbase-yes' : 'starbase-no'}">${hasStarbase ? 'Yes' : 'No'}</td>
+                                    <td>${planet.neutronium || 0}</td>
+                                    <td>${planet.duranium || 0}</td>
+                                    <td>${planet.tritanium || 0}</td>
+                                    <td>${planet.molybdenum || 0}</td>
+                                    <td>${planet.densityneutronium || 0}</td>
+                                    <td>${planet.densityduranium || 0}</td>
+                                    <td>${planet.densitytritanium || 0}</td>
+                                    <td>${planet.densitymolybdenum || 0}</td>
+                                    <td class="${getResourceClass(totalMinerals, 'minerals')}">${totalMinerals}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Create starbases table
+        function createStarbasesTable(starbases, planets) {
+            const headers = [
+                'Planet', 'ID', 'Loc', 'Def', 'Fight', 'Eng', 'Hull', 'Torp', 'Beam', 'Damage', 'Mission'
+            ];
+            
+            return `
+                <table class="starbases-table">
+                    <thead>
+                        <tr>
+                            ${headers.map(header => `<th>${header}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${starbases.map(starbase => {
+                            const planet = planets.find(p => p.id === starbase.planetid);
+                            const planetName = planet ? planet.name : 'Unknown';
+                            
+                            return `
+                                <tr>
+                                    <td class="planet-name" title="${planetName}">${planetName ? planetName.substring(0, 12) : 'Unknown'}</td>
+                                    <td>${starbase.planetid}</td>
+                                    <td>(${planet?.x || 0}, ${planet?.y || 0})</td>
+                                    <td class="${getResourceClass(starbase.defense || 0, 'defense')}">${starbase.defense || 0}</td>
+                                    <td>${starbase.fighters || 0}</td>
+                                    <td class="${getTechClass(starbase.enginetech || 0)}">${starbase.enginetech || 0}</td>
+                                    <td class="${getTechClass(starbase.hulltech || 0)}">${starbase.hulltech || 0}</td>
+                                    <td class="${getTechClass(starbase.torptech || 0)}">${starbase.torptech || 0}</td>
+                                    <td class="${getTechClass(starbase.beamtech || 0)}">${starbase.beamtech || 0}</td>
+                                    <td>${starbase.damage || 0}%</td>
+                                    <td>${starbase.mission || 0}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
         }
 
         // Process uploaded file
