@@ -2084,7 +2084,7 @@
         <!-- Test Mode Toggle -->
         <div class="test-mode-toggle" style="text-align: center; margin-bottom: 15px;">
             <label style="color: #00d4ff; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="testModeToggle" style="margin: 0;" checked>
+                <input type="checkbox" id="testModeToggle" style="margin: 0;">
                 <span>Test Mode (Auto-load sample data)</span>
             </label>
         </div>
@@ -4216,7 +4216,7 @@
         let selectedObjectType = null; // 'planet', 'starbase', 'ship'
 
         // Test mode toggle - Set to false for production
-        let isTestMode = true; // Change this to false for production release
+        let isTestMode = false; // Change this to false for production release
 
         // Embedded test data for development (loaded from external script)
         // TEST_DATA is defined in test_data_embed.js as EMBEDDED_TEST_DATA
@@ -7182,15 +7182,18 @@
         function updateTestModeUI() {
             const uploadSection = document.querySelector('.upload-section');
             const testModeToggle = document.getElementById('testModeToggle');
+            const testLoadBtn = document.getElementById('testLoadBtn');
             
             if (isTestMode) {
                 uploadSection.style.display = 'none';
                 testModeToggle.parentElement.parentElement.style.background = 'rgba(40, 167, 69, 0.2)';
                 testModeToggle.parentElement.parentElement.style.border = '2px solid #28a745';
+                if (testLoadBtn) testLoadBtn.style.display = 'inline-block';
             } else {
                 uploadSection.style.display = 'block';
                 testModeToggle.parentElement.parentElement.style.background = 'rgba(255, 255, 255, 0.1)';
                 testModeToggle.parentElement.parentElement.style.border = 'none';
+                if (testLoadBtn) testLoadBtn.style.display = 'none';
             }
         }
         
