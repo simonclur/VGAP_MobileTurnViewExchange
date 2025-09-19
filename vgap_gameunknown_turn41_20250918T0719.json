@@ -257,7 +257,7 @@
       "allturnsin": false,
       "lastnotified": false,
       "ishosting": false,
-      "lastloadeddate": "9/17/2025 11:26:52 PM",
+      "lastloadeddate": "9/18/2025 7:18:46 AM",
       "deletedate": "",
       "lasthostdate": "9/17/2025 6:22:07 AM",
       "password": "-",
@@ -269,8 +269,8 @@
       "statusname": "Running",
       "justended": false,
       "iscustom": true,
-      "timetohostshort": "45 Hours",
-      "timetohost": "Next turn in 45 hours",
+      "timetohostshort": "37 Hours",
+      "timetohost": "Next turn in 37 hours",
       "id": 647941
     },
     "player": {
@@ -324,7 +324,7 @@
         "turnjoined": 1,
         "turnready": false,
         "turnreadydate": "9/15/2025 3:58:00 PM",
-        "turnstatus": 0,
+        "turnstatus": 1,
         "turnsmissed": 0,
         "turnsmissedtotal": 3,
         "turnsholiday": 0,

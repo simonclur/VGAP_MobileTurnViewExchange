@@ -380,6 +380,13 @@
                 margin: 5px 0;
             }
         }
+
+        /* Animations for starbase planning indicators */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -1092,6 +1099,7 @@
             
             const cx = scaleX(planet.x);
             const cy = scaleY(planet.y);
+            const isOwnedPlanet = parseInt(planet.ownerid, 10) === parseInt(playerId, 10);
             
             if (showDebug) {
                 console.log(`Planet ${planet.name}: game coords (${planet.x}, ${planet.y}) -> screen coords (${cx.toFixed(1)}, ${cy.toFixed(1)})`);
@@ -1120,6 +1128,92 @@
                 parent.appendChild(square);
             }
             
+            // Add starbase planning highlights for owned planets without starbases
+            if (isOwnedPlanet && !starbaseMap[planet.id]) {
+                const starbases = currentGameData.rst?.starbases || [];
+                const starbaseBuilds = currentGameData.rst?.starbasebuilds || [];
+                const starbaseReq = calculatePlanetStarbaseRequirements(planet, starbases, starbaseBuilds);
+                
+                if (starbaseReq) {
+                    if (starbaseReq.isBuildingStarbase) {
+                        // Building starbase - pulsing orange square
+                        const buildSquare = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        const side = radiusPx * 2.5;
+                        buildSquare.setAttribute("x", cx - side / 2);
+                        buildSquare.setAttribute("y", cy - side / 2);
+                        buildSquare.setAttribute("width", side);
+                        buildSquare.setAttribute("height", side);
+                        buildSquare.setAttribute("fill", "none");
+                        buildSquare.setAttribute("stroke", "#ff9800");
+                        buildSquare.setAttribute("stroke-width", 3 * zoomScale);
+                        buildSquare.setAttribute("stroke-dasharray", "5,3");
+                        buildSquare.style.animation = "pulse 2s infinite";
+                        parent.appendChild(buildSquare);
+                    } else if (starbaseReq.avgCompletion >= 70) {
+                        // Close to starbase requirements - multiple rings like note_utils.py
+                        const colors = ["#09e4ee", "#0c6ee6", "#09e4ee"];
+                        const radii = [14, 15, 16];
+                        
+                        for (let i = 0; i < 3; i++) {
+                            const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                            ring.setAttribute("cx", cx);
+                            ring.setAttribute("cy", cy);
+                            ring.setAttribute("r", (radii[i] * zoomScale));
+                            ring.setAttribute("fill", "none");
+                            ring.setAttribute("stroke", colors[i]);
+                            ring.setAttribute("stroke-width", (i === 1 ? 3 : 1) * zoomScale);
+                            parent.appendChild(ring);
+                        }
+                    }
+                    
+                    // Check for connected starbase network
+                    const allPlanets = currentGameData.rst?.planets || [];
+                    const suppliers = findConnectedResourceSuppliers(planet, allPlanets, playerId);
+                    
+                    // Check if connected suppliers can provide all missing resources
+                    const suppliedResources = new Set();
+                    suppliers.forEach(supplier => {
+                        supplier.provides.forEach(resource => suppliedResources.add(resource));
+                    });
+                    
+                    const needsResources = [];
+                    if (starbaseReq.missing.duranium > 0) needsResources.push('D');
+                    if (starbaseReq.missing.tritanium > 0) needsResources.push('T'); 
+                    if (starbaseReq.missing.molybdenum > 0) needsResources.push('M');
+                    if (starbaseReq.missing.megacredits > 0) needsResources.push('MC');
+                    
+                    const hasConnectedSupply = needsResources.every(need => 
+                        suppliedResources.has(need) || need === 'MC' && suppliedResources.has('MC')
+                    );
+                    
+                    if (hasConnectedSupply && suppliers.length > 0) {
+                        // Connected starbase network - draw lines to suppliers
+                        suppliers.slice(0, 2).forEach(supplier => {
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute("x1", cx);
+                            line.setAttribute("y1", cy);
+                            line.setAttribute("x2", scaleX(supplier.planet.x));
+                            line.setAttribute("y2", scaleY(supplier.planet.y));
+                            line.setAttribute("stroke", "#f204e2");
+                            line.setAttribute("stroke-width", 1 * zoomScale);
+                            line.setAttribute("stroke-dasharray", "3,3");
+                            line.setAttribute("opacity", "0.7");
+                            parent.appendChild(line);
+                        });
+                        
+                        // Add connected indicator circle
+                        const connectedCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        connectedCircle.setAttribute("cx", cx);
+                        connectedCircle.setAttribute("cy", cy);
+                        connectedCircle.setAttribute("r", 10 * zoomScale);
+                        connectedCircle.setAttribute("fill", "none");
+                        connectedCircle.setAttribute("stroke", "#f204e2");
+                        connectedCircle.setAttribute("stroke-width", 1 * zoomScale);
+                        parent.appendChild(connectedCircle);
+                    }
+                }
+            }
+
             const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 circle.setAttribute("cx", cx);
                 circle.setAttribute("cy", cy);
@@ -1146,7 +1240,7 @@
                 
                 let tooltipData = {
                     'ID': planet.id,
-                    'Owner': getOwnerName(planet.ownerid, playerId),
+                    'Owner': getOwnerUsername(planet.ownerid),
                     'Location': `(${planet.x}, ${planet.y})`,
                     'Friendly Code': planet.friendlycode || '',
                     'Temperature': `${planet.temp || 0}°`,
@@ -1162,6 +1256,36 @@
                     'Starbase': starbaseMap[planet.id] ? 'Yes' : 'No',
                     'Minerals': `N:${planet.neutronium || 0} D:${planet.duranium || 0} T:${planet.tritanium || 0} M:${planet.molybdenum || 0}`
                 };
+                
+                // Add starbase requirements for owned planets without starbases
+                if (isOwnedPlanet && !starbaseMap[planet.id]) {
+                    const starbases = currentGameData.rst?.starbases || [];
+                    const starbaseBuilds = currentGameData.rst?.starbasebuilds || [];
+                    const starbaseReq = calculatePlanetStarbaseRequirements(planet, starbases, starbaseBuilds);
+                    
+                    if (starbaseReq) {
+                        tooltipData['━━━ Starbase Requirements ━━━'] = '';
+                        
+                        if (starbaseReq.isBuildingStarbase) {
+                            tooltipData['🏗️ Status'] = 'Building Starbase This Turn';
+                        } else {
+                            tooltipData['📊 Completion'] = `${starbaseReq.avgCompletion.toFixed(1)}%`;
+                            tooltipData['🔴 Missing D'] = starbaseReq.missing.duranium > 0 ? starbaseReq.missing.duranium : '✓';
+                            tooltipData['🔴 Missing T'] = starbaseReq.missing.tritanium > 0 ? starbaseReq.missing.tritanium : '✓';
+                            tooltipData['🔴 Missing M'] = starbaseReq.missing.molybdenum > 0 ? starbaseReq.missing.molybdenum : '✓';
+                            tooltipData['🔴 Missing MC'] = starbaseReq.missing.megacredits > 0 ? starbaseReq.missing.megacredits : '✓';
+                        }
+                        
+                        // Find connected resource suppliers
+                        const allPlanets = currentGameData.rst?.planets || [];
+                        const suppliers = findConnectedResourceSuppliers(planet, allPlanets, playerId);
+                        if (suppliers.length > 0) {
+                            tooltipData['🤝 Connected Suppliers'] = suppliers.slice(0, 3).map(s => 
+                                `${s.planet.name?.substring(0, 8) || 'Planet'} (${s.provides.join(',')}, ${Math.round(s.distance)}ly)`
+                            ).join(', ');
+                        }
+                    }
+                }
                 
                 // Add ships at this location if any
                 if (shipsAtPlanet.length > 0) {
@@ -1309,7 +1433,7 @@
                         
                         const tooltipData = {
                             'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerId),
+                            'Owner': getOwnerUsername(ship.ownerid),
                             'Race': raceInfo || 'Unknown',
                             'Hull': hullInfo ? hullInfo.name : (ship.hullname || 'Unknown'),
                             'Hull Mass': hullInfo ? `${hullInfo.mass || 0} kt` : 'Unknown',
@@ -1371,7 +1495,7 @@
                         
                         const tooltipData = {
                             'ID': ship.id,
-                            'Owner': getOwnerName(ship.ownerid, playerId),
+                            'Owner': getOwnerUsername(ship.ownerid),
                             'Race': raceInfo || 'Unknown',
                             'Hull': hullInfo ? hullInfo.name : (ship.hullname || 'Unknown'),
                             'Hull Mass': hullInfo ? `${hullInfo.mass || 0} kt` : 'Unknown',
@@ -1503,6 +1627,12 @@
             };
         }
         
+        function getOwnerUsername(ownerId) {
+            const players = currentGameData.rst?.players || [];
+            const player = players.find(p => parseInt(p.id, 10) === parseInt(ownerId, 10));
+            return player ? player.username : `Player ${ownerId}`;
+        }
+
         function getOwnerName(ownerId, playerId) {
             // Safely parse to numbers for proper comparison
             const ownerIdNum = parseInt(ownerId, 10) || 0;
@@ -1863,6 +1993,114 @@
                     indicator.className = 'zoom-max';
                 }
             }
+        }
+
+        // Calculate starbase requirements for a single planet
+        function calculatePlanetStarbaseRequirements(planet, starbases, starbaseBuilds) {
+            // Skip planets that already have a starbase
+            const hasStarbase = starbases?.some(sb => sb.planetid === planet.id);
+            if (hasStarbase) return null;
+            
+            // Starbase build requirements (standard cost)
+            const required = {
+                duranium: 120,
+                tritanium: 402,
+                molybdenum: 340,
+                megacredits: 900
+            };
+            
+            // Check if planet is building a starbase this turn
+            const isBuildingStarbase = starbaseBuilds?.some(build => 
+                build.planetid === planet.id
+            );
+            
+            // Calculate resource gaps
+            const current = {
+                duranium: planet.duranium || 0,
+                tritanium: planet.tritanium || 0, 
+                molybdenum: planet.molybdenum || 0,
+                megacredits: planet.megacredits || 0
+            };
+            
+            const missing = {
+                duranium: Math.max(0, required.duranium - current.duranium),
+                tritanium: Math.max(0, required.tritanium - current.tritanium),
+                molybdenum: Math.max(0, required.molybdenum - current.molybdenum),
+                megacredits: Math.max(0, required.megacredits - current.megacredits)
+            };
+            
+            // Calculate how close to starbase requirements (0-100%)
+            const percentages = {
+                duranium: Math.min(100, (current.duranium / required.duranium) * 100),
+                tritanium: Math.min(100, (current.tritanium / required.tritanium) * 100),
+                molybdenum: Math.min(100, (current.molybdenum / required.molybdenum) * 100),
+                megacredits: Math.min(100, (current.megacredits / required.megacredits) * 100)
+            };
+            
+            const avgCompletion = (percentages.duranium + percentages.tritanium + 
+                                 percentages.molybdenum + percentages.megacredits) / 4;
+            
+            return {
+                isBuildingStarbase: isBuildingStarbase,
+                current: current,
+                missing: missing,
+                percentages: percentages,
+                avgCompletion: avgCompletion
+            };
+        }
+
+        // Check if planets are connected (within 84LY for resource sharing)
+        function areConnectedForStarbase(planet1, planet2, maxDistance = 84) {
+            const dx = planet1.x - planet2.x;
+            const dy = planet1.y - planet2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance <= maxDistance;
+        }
+
+        // Find planets that can provide resources to support starbase building
+        function findConnectedResourceSuppliers(targetPlanet, allPlanets, playerId) {
+            const suppliers = [];
+            const resourceTargets = {
+                megacredits: 2000,
+                duranium: 2000,
+                tritanium: 2000,
+                molybdenum: 2000
+            };
+            
+            for (const planet of allPlanets) {
+                if (planet.id === targetPlanet.id) continue;
+                if (parseInt(planet.ownerid, 10) !== playerId) continue;
+                if (!areConnectedForStarbase(targetPlanet, planet)) continue;
+                
+                // Check what resources this planet can provide
+                const provides = [];
+                if ((planet.megacredits || 0) + (planet.supplies || 0) > resourceTargets.megacredits) {
+                    provides.push('MC');
+                }
+                if ((planet.duranium || 0) + (planet.groundduranium || 0) > resourceTargets.duranium) {
+                    provides.push('D');
+                }
+                if ((planet.tritanium || 0) + (planet.groundtritanium || 0) > resourceTargets.tritanium) {
+                    provides.push('T');
+                }
+                if ((planet.molybdenum || 0) + (planet.groundmolybdenum || 0) > resourceTargets.molybdenum) {
+                    provides.push('M');
+                }
+                
+                if (provides.length > 0) {
+                    const distance = Math.sqrt(
+                        (targetPlanet.x - planet.x) ** 2 + 
+                        (targetPlanet.y - planet.y) ** 2
+                    );
+                    suppliers.push({
+                        planet: planet,
+                        distance: distance,
+                        provides: provides
+                    });
+                }
+            }
+            
+            return suppliers.sort((a, b) => a.distance - b.distance);
         }
     </script>
 </body>
