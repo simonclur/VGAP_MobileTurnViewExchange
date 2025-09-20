@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VGAP Saved Turn Viewer</title>
+    
+    <!-- Load nu.css first to avoid @import rule issues -->
+    <link href="nu.js_complete_page_save/Planets Nu - VGA Planets Space Strategy Game_files/nu.css" rel="stylesheet" type="text/css">
+    
     <style>
         * {
             box-sizing: border-box;
@@ -948,6 +952,42 @@
             color: #ff9800;
         }
 
+        .vgap-resource-critical {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        /* Ground resource color classes */
+        .vgap-ground-resource-rich {
+            color: #00e676;
+            font-weight: bold;
+            text-shadow: 0 0 2px rgba(0, 230, 118, 0.3);
+        }
+
+        .vgap-ground-resource-abundant {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .vgap-ground-resource-good {
+            color: #8bc34a;
+        }
+
+        .vgap-ground-resource-moderate {
+            color: #cddc39;
+        }
+
+        .vgap-ground-resource-poor {
+            color: #ff9800;
+            opacity: 0.7;
+        }
+
+        /* General ground resource styling for tooltips */
+        .vgap-ground-resource {
+            color: #8bc34a;
+            font-weight: 500;
+        }
+
         .starbase-yes,
         .vgap-starbase-yes {
             color: #28a745;
@@ -1011,6 +1051,65 @@
             font-size: 11px;
             font-style: italic;
             color: #b8b8b8;
+        }
+
+        /* Race bonus styling */
+        .vgap-race-bonus {
+            font-size: 11px;
+            font-weight: 500;
+            color: #e1bee7;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border-left: 3px solid #9c27b0;
+        }
+
+        .vgap-race-bonus:empty {
+            display: none;
+        }
+
+        /* Population colorization */
+        .vgap-population-high {
+            color: #00e676;
+            font-weight: bold;
+        }
+
+        .vgap-population-medium {
+            color: #4caf50;
+            font-weight: 500;
+        }
+
+        .vgap-population-moderate {
+            color: #8bc34a;
+        }
+
+        .vgap-population-low {
+            color: #ff9800;
+            opacity: 0.8;
+        }
+
+        /* Percentage colorization */
+        .vgap-percentage-excellent {
+            color: #00e676;
+            font-weight: bold;
+        }
+
+        .vgap-percentage-good {
+            color: #4caf50;
+            font-weight: 500;
+        }
+
+        .vgap-percentage-moderate {
+            color: #8bc34a;
+        }
+
+        .vgap-percentage-low {
+            color: #ff9800;
+        }
+
+        .vgap-percentage-poor {
+            color: #f44336;
+            opacity: 0.8;
         }
 
         /* Compact table variant */
@@ -1786,6 +1885,28 @@
             color: #ccc;
         }
 
+        /* VGAP Calculation field styling in tooltips */
+        .vgap-growth {
+            color: #a8e6cf;
+            font-weight: bold;
+        }
+
+        .vgap-income {
+            color: #ffd93d;
+            font-weight: bold;
+        }
+
+        .vgap-production {
+            color: #88d8ff;
+            font-weight: bold;
+        }
+        
+        .vgap-bonus {
+            color: #ff88dd;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
         /* Enhanced controls styling from original */
         .controls {
             background: rgba(255, 255, 255, 0.1);
@@ -2069,6 +2190,35 @@
     
     <script>
         // Load VGAP turn data from external JavaScript file
+    </script>
+    
+    <!-- Load dependencies from local complete page save -->
+    <script src="nu.js_complete_page_save/Planets Nu - VGA Planets Space Strategy Game_files/jquery-3.3.1.min.js"></script>
+    <script src="nu.js_complete_page_save/Planets Nu - VGA Planets Space Strategy Game_files/api.js"></script>
+    <script src="nu.js_complete_page_save/Planets Nu - VGA Planets Space Strategy Game_files/languagefile"></script>
+    <script src="nu.js_complete_page_save/Planets Nu - VGA Planets Space Strategy Game_files/nu.js"></script>
+    
+    <script>
+        // Initialize VGAP calculation engine after dependencies load
+        setTimeout(function() {
+            if (typeof nu !== 'undefined' && typeof vgap !== 'undefined') {
+                // Override isLocal to always use planets.nu resources instead of local files
+                nu.isLocal = function() { return false; };
+                
+                // Initialize with minimal required data
+                vgap.planets = [];
+                vgap.ships = [];
+                vgap.players = [];
+                vgap.starbases = [];
+                vgap.settings = {};
+                vgap.game = {};
+                vgap.player = { id: 1, raceid: 1 };
+                
+                console.log('nu.js calculation engine loaded successfully');
+            } else {
+                console.log('Loading standalone VGAP calculation engine as fallback');
+            }
+        }, 100);
     </script>
     <script src="test_turn_data.js"></script>
     <script>
@@ -2748,7 +2898,10 @@
 
                 // Apply conditional styling
                 if (column.colorize) {
-                    cell.classList.add(this.getCellColorClass(value, column.colorize));
+                    const colorClass = this.getCellColorClass(value, column.colorize);
+                    if (colorClass) {
+                        cell.classList.add(colorClass);
+                    }
                 }
 
                 return cell;
@@ -2964,6 +3117,14 @@
                         return this.getNativeGovernmentName(value);
                     case 'hull_name':
                         return this.getHullName(value);
+                    case 'population_growth':
+                        const growthValue = parseInt(value, 10) || 0;
+                        if (growthValue > 0) return `+${growthValue}`;
+                        else if (growthValue < 0) return `${growthValue}`;
+                        else return '0';
+                    case 'percentage':
+                        const percentValue = parseInt(value, 10) || 0;
+                        return `${percentValue}%`;
                     default:
                         // Safe toString conversion with fallback
                         if (value === null || value === undefined) return '';
@@ -3445,6 +3606,13 @@
                         else if (amount > 100) return 'vgap-resource-moderate';
                         else if (amount > 10) return 'vgap-resource-low';
                         else return 'vgap-resource-critical';
+                    case 'ground-resources':
+                        const groundAmount = parseInt(value, 10) || 0;
+                        if (groundAmount > 10000) return 'vgap-ground-resource-rich';
+                        else if (groundAmount > 5000) return 'vgap-ground-resource-abundant';
+                        else if (groundAmount > 1000) return 'vgap-ground-resource-good';
+                        else if (groundAmount > 100) return 'vgap-ground-resource-moderate';
+                        else return 'vgap-ground-resource-poor';
                     case 'starbase':
                         return value ? 'vgap-starbase-yes' : 'vgap-starbase-no';
                     case 'fuel':
@@ -3468,6 +3636,19 @@
                         else return 'vgap-tech-none';
                     case 'positive-negative':
                         return value > 0 ? 'cell-positive' : 'cell-negative';
+                    case 'population':
+                        const pop = parseInt(value, 10) || 0;
+                        if (pop > 10000) return 'vgap-population-high';
+                        else if (pop > 5000) return 'vgap-population-medium';
+                        else if (pop > 1000) return 'vgap-population-moderate';
+                        else return 'vgap-population-low';
+                    case 'percentage':
+                        const pct = parseInt(value, 10) || 0;
+                        if (pct > 80) return 'vgap-percentage-excellent';
+                        else if (pct > 60) return 'vgap-percentage-good';
+                        else if (pct > 40) return 'vgap-percentage-moderate';
+                        else if (pct > 20) return 'vgap-percentage-low';
+                        else return 'vgap-percentage-poor';
                     default:
                         return '';
                 }
@@ -3544,6 +3725,327 @@
                     
                     row.style.display = visible ? 'flex' : 'none';
                 });
+            }
+
+            // VGAP Formula Engine - Using nu.js calculation engine directly
+            calculateVGAPFormulas(planet) {
+                let calculations = {};
+                
+                // Initialize vgap objects if needed
+                this.initializeVGAPDataForPlanet(planet);
+                
+                try {
+                    // Use nu.js functions directly for accurate calculations
+                    if (typeof vgap !== 'undefined' && vgap.pl) {
+                        // Population growth using nu.js prediction engine for comprehensive accuracy
+                        if (vgap.pred && vgap.pred.nextTurnPlanet) {
+                            const nextTurnPlanet = vgap.pred.nextTurnPlanet(planet);
+                            calculations.colonistGrowth = nextTurnPlanet.clans - planet.clans;
+                            calculations.nativeGrowth = nextTurnPlanet.nativeclans - planet.nativeclans;
+                        } else {
+                            // Fallback to direct growth functions if prediction not available
+                            calculations.colonistGrowth = vgap.pl.colonistGrowth(planet);
+                            calculations.nativeGrowth = vgap.pl.nativeGrowth(planet);
+                        }
+                        calculations.maxColonists = vgap.pl.maxClans(planet);
+                        calculations.maxNatives = vgap.nativeMaxPop ? vgap.nativeMaxPop(planet) : 0;
+                        
+                        // Tax calculations (includes Federal 2x bonus, Insectoid 2x bonus, etc.)
+                        calculations.colonistTaxIncome = vgap.colonistTaxAmount(planet);
+                        calculations.nativeTaxIncome = vgap.nativeTaxAmount(planet);
+                        calculations.totalTaxIncome = vgap.totalIncome(planet);
+                        
+                        // Next turn predictions using nu.js prediction engine for all changes
+                        if (vgap.pred && vgap.pred.nextTurnPlanet) {
+                            const nextTurnPlanet = vgap.pred.nextTurnPlanet(planet);
+                            
+                            // Happiness changes
+                            calculations.colonistHappinessChange = nextTurnPlanet.colonisthappypoints - planet.colonisthappypoints;
+                            calculations.nativeHappinessChange = nextTurnPlanet.nativehappypoints - planet.nativehappypoints;
+                            
+                            // Resource changes (megacredits, supplies, minerals)
+                            calculations.megacreditsChange = nextTurnPlanet.megacredits - planet.megacredits;
+                            calculations.suppliesChange = nextTurnPlanet.supplies - planet.supplies;
+                            
+                            // Mineral changes
+                            calculations.neutroniumChange = nextTurnPlanet.neutronium - planet.neutronium;
+                            calculations.duraniumChange = nextTurnPlanet.duranium - planet.duranium;
+                            calculations.tritaniumChange = nextTurnPlanet.tritanium - planet.tritanium;
+                            calculations.molybdenumChange = nextTurnPlanet.molybdenum - planet.molybdenum;
+                        } else {
+                            // Fallback to direct functions if prediction not available
+                            calculations.colonistHappinessChange = vgap.colonistTaxChange ? vgap.colonistTaxChange(planet) : 0;
+                            calculations.nativeHappinessChange = vgap.nativeTaxChange ? vgap.nativeTaxChange(planet) : 0;
+                            
+                            // Fallback resource changes (approximate)
+                            calculations.megacreditsChange = calculations.totalTaxIncome + (calculations.factoryProduction || 0);
+                            calculations.suppliesChange = calculations.supplyProduction || 0;
+                            
+                            // Use prediction engine for mineral changes
+                            const planetCopy = JSON.parse(JSON.stringify(planet));
+                            const nextTurnPlanet = vgap.pred.nextTurnPlanet(planetCopy);
+                            calculations.neutroniumChange = nextTurnPlanet.neutronium - planet.neutronium;
+                            calculations.duraniumChange = nextTurnPlanet.duranium - planet.duranium;
+                            calculations.tritaniumChange = nextTurnPlanet.tritanium - planet.tritanium;
+                            calculations.molybdenumChange = nextTurnPlanet.molybdenum - planet.molybdenum;
+                        }
+                        
+                        // Mining calculations (includes Lizard 2x bonus, Reptilian native bonus, etc.)
+                        calculations.miningFactor = vgap.pl.miningFactor(planet);
+                        
+                        // Supply production (includes Bovinoid bonus)
+                        calculations.supplyProduction = vgap.pl.totalSuppliesOutput(planet);
+                        calculations.bovinoidSupplies = vgap.pl.bovinoidOutput(planet);
+                        
+                        // Factory calculations  
+                        calculations.factoryProduction = vgap.pl.totalSuppliesOutput(planet) - calculations.bovinoidSupplies;
+                        
+                        // Race and native type detection for display
+                        calculations.raceInfo = this.getRaceInfo(planet);
+                        calculations.nativeInfo = this.getNativeInfo(planet);
+                        
+                        // Calculate race bonuses for display
+                        calculations.raceBonus = this.calculateRaceBonuses(planet, calculations);
+                        
+                        // Climate comfort calculation
+                        calculations.climateDeathRate = vgap.pl.climateDeathRate ? vgap.pl.climateDeathRate(planet) : 0;
+                        calculations.temperatureComfort = planet.temp ? Math.max(0, 100 - Math.abs(planet.temp - 50) * 2) : 50;
+                        
+                    } else {
+                        // Fallback to simplified calculations if nu.js not available
+                        calculations = this.calculateFallbackFormulas(planet);
+                    }
+                } catch (error) {
+                    console.warn('Error using nu.js calculations, falling back to simple formulas:', error);
+                    calculations = this.calculateFallbackFormulas(planet);
+                }
+                
+                return calculations;
+            }
+            
+            // Calculate race bonuses for display
+            calculateRaceBonuses(planet, calculations) {
+                if (!vgap || !vgap.pl) return "";
+                
+                const bonuses = [];
+                
+                try {
+                    // Tax bonuses
+                    if (vgap.pl.isOwnedByFed && vgap.pl.isOwnedByFed(planet)) {
+                        bonuses.push("Fed 2x");
+                    }
+                    
+                    // Mining bonuses  
+                    if (vgap.pl.isOwnedByLizard && vgap.pl.isOwnedByLizard(planet)) {
+                        bonuses.push("Lizard 2x");
+                    }
+                    
+                    // Native bonuses
+                    if (vgap.pl.hasBovinoids && vgap.pl.hasBovinoids(planet)) {
+                        bonuses.push("Bovinoid Supplies");
+                    } else if (vgap.pl.hasReptilians && vgap.pl.hasReptilians(planet)) {
+                        bonuses.push("Reptilian Mining");
+                    } else if (vgap.pl.hasAvians && vgap.pl.hasAvians(planet)) {
+                        bonuses.push("Avian Tax");
+                    } else if (vgap.pl.hasInsectoids && vgap.pl.hasInsectoids(planet)) {
+                        bonuses.push("Insectoid 2x Tax");
+                    }
+                    
+                    // Hiss effects (ship-based) - Check for HISS mission, not just ship name
+                    const shipsAtPlanet = vgap.shipsAt ? vgap.shipsAt(planet.x, planet.y) : [];
+                    const hissShips = shipsAtPlanet.filter(ship => ship.mission === 9); // Mission 9 is HISS
+                    if (hissShips.length > 0) {
+                        bonuses.push(`Hiss Mission (${hissShips.length})`);
+                    }
+                    
+                } catch (error) {
+                    console.warn('Error calculating race bonuses:', error);
+                }
+                
+                return bonuses.join(", ") || "";
+            }
+            
+            // Initialize VGAP data structures for planet calculations
+            initializeVGAPDataForPlanet(planet) {
+                if (typeof vgap === 'undefined') return;
+                
+                // Only initialize once per game session
+                if (vgap._initialized && vgap.ships && vgap.ships.length > 0) {
+                    return;
+                }
+                
+                // Check if we have turn data available
+                if (!currentGameData || !currentGameData.rst) {
+                    console.warn('No turn data available for nu.js initialization');
+                    return;
+                }
+                
+                console.log('Initializing nu.js with turn data...');
+                
+                try {
+                    // Simulate the processLoad function from nu.js
+                    // This is what nu.js does when it receives turn data from the server
+                    const result = currentGameData;
+                    
+                    // Ensure basic translation object exists to prevent 'unknown' errors
+                    if (!nu.t || !nu.t.unknown) {
+                        if (!nu.t) nu.t = {};
+                        nu.t.unknown = 'Unknown';
+                    }
+                    
+                    // Set up basic properties that nu.js expects
+                    vgap.player = result.rst.player || { id: 1, raceid: 1 };
+                    vgap.races = result.rst.races || [];
+                    vgap.players = result.rst.players || [];
+                    vgap.game = result.rst.game || { id: 1, turn: 1 };
+                    vgap.settings = result.rst.settings || {};
+                    vgap.scores = result.rst.scores || [];
+                    
+                    // Load core game data arrays
+                    vgap.planets = result.rst.planets || [];
+                    vgap.ships = result.rst.ships || [];
+                    vgap.starbases = result.rst.starbases || [];
+                    vgap.minefields = result.rst.minefields || [];
+                    vgap.vcrs = result.rst.vcrs || [];
+                    vgap.messages = result.rst.messages || [];
+                    
+                    // Set up turn/game state
+                    vgap.now = { turn: vgap.settings.turn || 1 };
+                    
+                    // Process planets (same as nu.js does)
+                    // Skip the Horwasp check during initialization to avoid dependency issues
+                    vgap.planets.forEach(pl => {
+                        // Set default target coordinates for all planets
+                        // Note: Horwasp planets have special handling but we'll skip that check during init
+                        pl.targetx = pl.x; 
+                        pl.targety = pl.y;
+                    });
+                    
+                    // CRITICAL: Create the lookup maps (shipMap, planetMap, etc.)
+                    // This is what enables coordinate-based ship/planet access
+                    vgap.createLookups();
+                    
+                    // Initialize arrays that nu.js uses
+                    vgap.myplanets = [];
+                    vgap.debrisdisks = [];
+                    
+                    // Process VCRs if needed
+                    if (vgap.vcrs && vgap.vcrs.length > 0) {
+                        vgap.vcrs.forEach(vcr => Object.setPrototypeOf(vcr, vgap.vcr));
+                    }
+                    
+                    // Mark as initialized
+                    vgap._initialized = true;
+                    
+                    console.log('nu.js initialization complete:', {
+                        planets: vgap.planets.length,
+                        ships: vgap.ships.length,
+                        players: vgap.players.length,
+                        turn: vgap.settings.turn
+                    });
+                    
+                } catch (error) {
+                    console.error('Error initializing nu.js with turn data:', error);
+                    
+                    // Fallback initialization
+                    if (!vgap.ships) vgap.ships = [];
+                    if (!vgap.planets) vgap.planets = [];
+                    if (!vgap.minefields) vgap.minefields = [];
+                    if (!vgap.player) vgap.player = { id: planet.ownerid || 1, raceid: 1 };
+                    if (!vgap.settings) vgap.settings = {};
+                    if (!vgap.now) vgap.now = { turn: 1 };
+                    if (!vgap.game) vgap.game = { id: 1, turn: 1 };
+                }
+                
+                // Ensure planet has required properties for calculations
+                if (!planet.hasOwnProperty('colonisthappypoints')) planet.colonisthappypoints = 100;
+                if (!planet.hasOwnProperty('nativehappypoints')) planet.nativehappypoints = 100;
+                if (!planet.hasOwnProperty('nativetaxvalue')) planet.nativetaxvalue = 10;
+                if (!planet.hasOwnProperty('colTempChange')) planet.colTempChange = 0;
+                if (!planet.hasOwnProperty('nativeTempChange')) planet.nativeTempChange = 0;
+            }
+            
+            // Get race information for display
+            getRaceInfo(planet) {
+                if (typeof vgap === 'undefined' || !vgap.pl) return null;
+                
+                return {
+                    isFederal: vgap.pl.isOwnedByFed(planet),
+                    isLizard: vgap.pl.isOwnedByLizard(planet),
+                    isBird: vgap.pl.isOwnedByBird(planet),
+                    isCrystal: vgap.pl.isOwnedByCrystal(planet),
+                    isBorg: vgap.pl.isOwnedByBorg(planet),
+                    isHorwasp: vgap.pl.isOwnedByHorwasp(planet),
+                    taxBonus: vgap.taxBonus ? vgap.taxBonus(planet) : 1
+                };
+            }
+            
+            // Get native information for display  
+            getNativeInfo(planet) {
+                if (typeof vgap === 'undefined' || !vgap.pl) return null;
+                
+                return {
+                    hasNatives: vgap.pl.hasNatives(planet),
+                    hasBovinoids: vgap.pl.hasBovinoids(planet),
+                    hasReptilians: vgap.pl.hasReptilians(planet),
+                    hasAvians: vgap.pl.hasAvians(planet),
+                    hasInsectoids: vgap.pl.hasInsectoids(planet),
+                    hasSiliconoids: vgap.pl.hasSiliconoids(planet),
+                    hasAmorphous: vgap.pl.hasAmorphous(planet)
+                };
+            }
+            
+            // Fallback calculations when nu.js is not available
+            calculateFallbackFormulas(planet) {
+                const calculations = {};
+                
+                // Basic planet properties
+                const clans = planet.clans || 0;
+                const nativeClans = planet.nativeclans || 0;
+                const temp = planet.temp || 50;
+                const nativeType = planet.nativetype || 0;
+                const nativeGov = planet.nativegovernment || 0;
+                const factories = planet.factories || 0;
+                const mines = planet.mines || 0;
+                const taxRate = planet.colonisttaxrate || 0;
+                const nativeTaxRate = planet.nativetaxrate || 0;
+                
+                // Temperature comfort calculation
+                const tempComfort = Math.max(0, 100 - Math.abs(temp - 50));
+                calculations.tempComfort = tempComfort;
+                
+                // Population growth calculations (simplified VGAP formulas)
+                const maxClansFromFactory = factories * 20000;
+                const colGrowthRate = Math.min(5, Math.max(0, (100 - clans / 250) * tempComfort / 100));
+                const projectedColGrowth = Math.floor(clans * colGrowthRate / 100);
+                calculations.colonistGrowth = Math.min(projectedColGrowth, maxClansFromFactory - clans);
+                
+                // Native population growth (based on government and happiness)
+                const nativeGrowthRate = nativeGov > 0 ? Math.min(5, Math.max(0, (100 - nativeClans / 300))) : 0;
+                calculations.nativeGrowth = Math.floor(nativeClans * nativeGrowthRate / 100);
+                
+                // Tax revenue calculations
+                const colonistTaxIncome = Math.floor(clans * taxRate / 100);
+                const nativeTaxIncome = nativeGov > 0 ? Math.floor(nativeClans * nativeTaxRate * nativeGov / 1000) : 0;
+                calculations.colonistTaxIncome = colonistTaxIncome;
+                calculations.nativeTaxIncome = nativeTaxIncome;
+                calculations.totalTaxIncome = colonistTaxIncome + nativeTaxIncome;
+                
+                // Happiness change calculations (simplified)
+                const taxHappinessImpact = -Math.floor(taxRate / 10);
+                const nativeTaxHappinessImpact = -Math.floor(nativeTaxRate / 10);
+                calculations.colonistHappinessChange = taxHappinessImpact;
+                calculations.nativeHappinessChange = nativeTaxHappinessImpact;
+                
+                // Supply production
+                const supplyProduction = Math.floor(factories * tempComfort / 100);
+                calculations.supplyProduction = supplyProduction;
+                
+                // Money production from factories
+                const factoryIncome = Math.floor(factories * tempComfort / 100);
+                calculations.factoryIncome = factoryIncome;
+                
+                return calculations;
             }
 
             // Helper function to calculate resource richness for planets
@@ -3676,12 +4178,28 @@
                         colorize: 'resources' 
                     },
                     { 
+                        key: 'maxColonistsCalc', 
+                        title: 'Max Col', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'population',
+                        colorize: 'population'
+                    },
+                    { 
                         key: 'nativeclans', 
                         title: 'Nat', 
                         width: 'col-md', 
                         align: 'text-right',
                         format: 'population', 
                         colorize: 'resources' 
+                    },
+                    { 
+                        key: 'maxNativesCalc', 
+                        title: 'Max Nat', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'population',
+                        colorize: 'population'
                     },
                     { 
                         key: 'nativetype', 
@@ -3724,6 +4242,14 @@
                         colorize: 'starbase'
                     },
                     { 
+                        key: 'neutronium', 
+                        title: 'Neu', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
                         key: 'duranium', 
                         title: 'Dur', 
                         width: 'col-sm', 
@@ -3742,6 +4268,54 @@
                     { 
                         key: 'molybdenum', 
                         title: 'Mol', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'groundneutronium', 
+                        title: 'N🌍', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'ground-resources'
+                    },
+                    { 
+                        key: 'groundduranium', 
+                        title: 'D🌍', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'ground-resources'
+                    },
+                    { 
+                        key: 'groundtritanium', 
+                        title: 'T🌍', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'ground-resources'
+                    },
+                    { 
+                        key: 'groundmolybdenum', 
+                        title: 'M🌍', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'ground-resources'
+                    },
+                    { 
+                        key: 'megacredits', 
+                        title: 'MC', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'supplies', 
+                        title: 'Sup', 
                         width: 'col-sm', 
                         align: 'text-right',
                         format: 'number',
@@ -3776,14 +4350,6 @@
                         format: 'number'
                     },
                     { 
-                        key: 'colchange', 
-                        title: 'Col Δ', 
-                        width: 'col-sm', 
-                        align: 'text-right',
-                        format: 'population_change',
-                        colorize: 'positive-negative'
-                    },
-                    { 
                         key: 'colonisttaxrate', 
                         title: 'Col Tax', 
                         width: 'col-xs', 
@@ -3797,22 +4363,6 @@
                         align: 'text-right',
                         format: 'happiness',
                         colorize: 'happiness'
-                    },
-                    { 
-                        key: 'colhappychange', 
-                        title: 'Col H Δ', 
-                        width: 'col-xs', 
-                        align: 'text-right',
-                        format: 'happiness_change',
-                        colorize: 'positive-negative'
-                    },
-                    { 
-                        key: 'nativechange', 
-                        title: 'Nat Δ', 
-                        width: 'col-sm', 
-                        align: 'text-right',
-                        format: 'population_change',
-                        colorize: 'positive-negative'
                     },
                     { 
                         key: 'nativetaxrate', 
@@ -3830,12 +4380,165 @@
                         colorize: 'happiness'
                     },
                     { 
-                        key: 'nativehappychange', 
-                        title: 'Nat H Δ', 
-                        width: 'col-xs', 
+                        key: 'colonistHappinessChangeCalc', 
+                        title: 'Col H Δ', 
+                        width: 'col-sm', 
                         align: 'text-right',
                         format: 'happiness_change',
                         colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'nativeHappinessChangeCalc', 
+                        title: 'Nat H Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'happiness_change',
+                        colorize: 'positive-negative'
+                    },
+                    // New VGAP Formula Calculations
+                    { 
+                        key: 'colonistGrowthCalc', 
+                        title: 'Col Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'population_growth',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'nativeGrowthCalc', 
+                        title: 'Nat Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'population_growth',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'totalTaxIncomeCalc', 
+                        title: 'Tax Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'megacreditsChangeCalc', 
+                        title: 'MC Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'suppliesChangeCalc', 
+                        title: 'Sup Δ', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'neutroniumChangeCalc', 
+                        title: 'N⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'duraniumChangeCalc', 
+                        title: 'D⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'tritaniumChangeCalc', 
+                        title: 'T⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'molybdenumChangeCalc', 
+                        title: 'M⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'duraniumChangeCalc', 
+                        title: 'D⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'tritaniumChangeCalc', 
+                        title: 'T⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'molybdenumChangeCalc', 
+                        title: 'M⛏', 
+                        width: 'col-xs', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'positive-negative'
+                    },
+                    { 
+                        key: 'supplyProductionCalc', 
+                        title: 'Sup+', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'factoryIncomeCalc', 
+                        title: 'Fac MC', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'tempComfortCalc', 
+                        title: 'Comfort', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'percentage',
+                        colorize: 'temperature'
+                    },
+                    { 
+                        key: 'miningFactorCalc', 
+                        title: 'Mining', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'percentage',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'factoryProductionCalc', 
+                        title: 'Fac Prod', 
+                        width: 'col-sm', 
+                        align: 'text-right',
+                        format: 'number',
+                        colorize: 'resources'
+                    },
+                    { 
+                        key: 'raceBonusCalc', 
+                        title: 'Race Bonus', 
+                        width: 'col-md', 
+                        align: 'text-left',
+                        format: 'text',
+                        cssClass: 'vgap-race-bonus'
                     }
                 ];
 
@@ -3844,12 +4547,34 @@
                     ? [...baseColumns, ownerColumn, ...remainingColumns]
                     : [...baseColumns, ...remainingColumns];
 
-                // Transform planets data to include resource richness information
+                // Transform planets data to include resource richness information and VGAP calculations
                 const enrichedPlanets = planets.map(planet => {
                     const resourceAnalysis = this.calculateResourceRichness(planet);
+                    const vgapCalculations = this.calculateVGAPFormulas(planet);
+                    
                     return {
                         ...planet,
                         ...resourceAnalysis,
+                        // Map calculated values to column keys
+                        colonistGrowthCalc: vgapCalculations.colonistGrowth,
+                        nativeGrowthCalc: vgapCalculations.nativeGrowth,
+                        totalTaxIncomeCalc: vgapCalculations.totalTaxIncome,
+                        megacreditsChangeCalc: vgapCalculations.megacreditsChange,
+                        suppliesChangeCalc: vgapCalculations.suppliesChange,
+                        colonistHappinessChangeCalc: vgapCalculations.colonistHappinessChange,
+                        nativeHappinessChangeCalc: vgapCalculations.nativeHappinessChange,
+                        neutroniumChangeCalc: vgapCalculations.neutroniumChange,
+                        duraniumChangeCalc: vgapCalculations.duraniumChange,
+                        tritaniumChangeCalc: vgapCalculations.tritaniumChange,
+                        molybdenumChangeCalc: vgapCalculations.molybdenumChange,
+                        supplyProductionCalc: vgapCalculations.supplyProduction,
+                        factoryIncomeCalc: vgapCalculations.factoryIncome,
+                        tempComfortCalc: vgapCalculations.tempComfort,
+                        maxColonistsCalc: vgapCalculations.maxColonists,
+                        maxNativesCalc: vgapCalculations.maxNatives,
+                        miningFactorCalc: vgapCalculations.miningFactor,
+                        factoryProductionCalc: vgapCalculations.factoryProduction,
+                        raceBonusCalc: vgapCalculations.raceBonus,
                         starbase: starbaseMap[planet.id] // Add explicit starbase reference for formatting
                     };
                 });
@@ -4295,6 +5020,52 @@
                         if (race) raceName = race.name || race.adjective || race.shortname;
                     }
                 }
+                
+                // Calculate VGAP formulas for enhanced tooltip
+                const vgapCalcs = window.tableManager ? window.tableManager.calculateVGAPFormulas(data) : {};
+                
+                // Generate race-specific bonus information
+                let raceBonusInfo = '';
+                if (vgapCalcs.raceInfo) {
+                    const bonuses = [];
+                    if (vgapCalcs.raceInfo.isFederal) bonuses.push(`Federal: ${vgapCalcs.raceInfo.taxBonus}x Tax`);
+                    if (vgapCalcs.raceInfo.isLizard) bonuses.push('Lizard: 2x Mining');
+                    if (vgapCalcs.raceInfo.isCrystal) bonuses.push('Crystal: Hot Climate');
+                    if (vgapCalcs.raceInfo.isBorg) bonuses.push('Cyborg: Assimilation');
+                    if (vgapCalcs.raceInfo.isHorwasp) bonuses.push('Horwasp: Burrows');
+                    if (bonuses.length > 0) {
+                        raceBonusInfo = `<span class="tooltip-label">Race Bonus:</span><span class="vgap-bonus">${bonuses.join(', ')}</span>`;
+                    }
+                }
+                
+                // Generate native-specific bonus information
+                let nativeBonusInfo = '';
+                if (vgapCalcs.nativeInfo && vgapCalcs.nativeInfo.hasNatives) {
+                    const bonuses = [];
+                    if (vgapCalcs.nativeInfo.hasBovinoids) bonuses.push(`Bovinoids: +${vgapCalcs.bovinoidSupplies || 0} Supplies`);
+                    if (vgapCalcs.nativeInfo.hasReptilians) bonuses.push('Reptilians: 2x Mining');
+                    if (vgapCalcs.nativeInfo.hasAvians) bonuses.push('Avians: +10 Happiness');
+                    if (vgapCalcs.nativeInfo.hasInsectoids) bonuses.push('Insectoids: 2x Tax');
+                    if (vgapCalcs.nativeInfo.hasSiliconoids) bonuses.push('Siliconoids: Hot Climate');
+                    if (bonuses.length > 0) {
+                        nativeBonusInfo = `<span class="tooltip-label">Native Bonus:</span><span class="vgap-bonus">${bonuses.join(', ')}</span>`;
+                    }
+                }
+                
+                // Check for Hiss ship effects
+                let shipEffectInfo = '';
+                if (typeof vgap !== 'undefined' && vgap.shipsAt) {
+                    try {
+                        const hissingShips = vgap.shipsAt(data.x, data.y).filter(vgap.isHissing);
+                        if (hissingShips.length > 0) {
+                            const hissBonus = hissingShips.length * 5;
+                            shipEffectInfo = `<span class="tooltip-label">Ship Effects:</span><span class="vgap-bonus">${hissingShips.length} Hissing (+${hissBonus} Happy)</span>`;
+                        }
+                    } catch (e) {
+                        // Ignore errors if ship data not available
+                    }
+                }
+                
                 const isAllied = window.alliedPlayerIds && window.alliedPlayerIds.includes(parseInt(data.ownerid, 10));
                 content = `
                     <h4>🪐 ${data.name || `Planet ${data.id}`}${isAllied ? ' <span style=\"color:#66ccff;font-weight:bold;\">[Ally]</span>' : ''}</h4>
@@ -4304,13 +5075,35 @@
                         <span class="tooltip-label">Race:</span><span>${raceName}</span>
                         <span class="tooltip-label">Position:</span><span>(${data.x}, ${data.y})</span>
                         <span class="tooltip-label">Temperature:</span><span class="${getTempClass(temp)}">${temp}°</span>
+                        <span class="tooltip-label">Comfort:</span><span class="${getTempClass(vgapCalcs.tempComfort || 0)}">${vgapCalcs.tempComfort || 0}%</span>
                         <span class="tooltip-label">Happiness:</span><span class="${getHappinessClass(happiness)}">${happiness}%</span>
-                        <span class="tooltip-label">Colonists:</span><span>${formatPopulation(data.colonistclans)}</span>
-                        <span class="tooltip-label">Neutronium:</span><span>${parseInt(data.neutronium || 0).toLocaleString()}</span>
-                        <span class="tooltip-label">Duranium:</span><span class="${getResourceClass(data.duranium || 0, 'duranium')}">${parseInt(data.duranium || 0).toLocaleString()}</span>
-                        <span class="tooltip-label">Tritanium:</span><span class="${getResourceClass(data.tritanium || 0, 'tritanium')}">${parseInt(data.tritanium || 0).toLocaleString()}</span>
-                        <span class="tooltip-label">Molybdenum:</span><span class="${getResourceClass(data.molybdenum || 0, 'molybdenum')}">${parseInt(data.molybdenum || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Colonists:</span><span>${formatPopulationForTooltip(data.clans || data.colonistclans)}</span>
+                        <span class="tooltip-label">Col Growth:</span><span class="vgap-growth">${vgapCalcs.colonistGrowth >= 0 ? '+' : ''}${vgapCalcs.colonistGrowth || 0}</span>
+                        <span class="tooltip-label">Natives:</span><span>${formatPopulationForTooltip(data.nativeclans)}</span>
+                        <span class="tooltip-label">Nat Growth:</span><span class="vgap-growth">${vgapCalcs.nativeGrowth >= 0 ? '+' : ''}${vgapCalcs.nativeGrowth || 0}</span>
+                        <span class="tooltip-label">Native Race:</span><span>${data.nativeracename || 'None'}</span>
+                        <span class="tooltip-label">Tax Income:</span><span class="vgap-income">${vgapCalcs.totalTaxIncome || 0} MC</span>
+                        <span class="tooltip-label">Factories:</span><span>${data.factories || 0}</span>
+                        <span class="tooltip-label">Fac Income:</span><span class="vgap-income">${vgapCalcs.factoryIncome || 0} MC</span>
+                        <span class="tooltip-label">Supply Prod:</span><span class="vgap-production">${vgapCalcs.supplyProduction || 0}</span>
+                        <span class="tooltip-label">Mines:</span><span>${data.mines || 0}</span>
+                        <span class="tooltip-label">Mine N/turn:</span><span class="vgap-production">${vgapCalcs.neutroniumChange || 0}</span>
+                        <span class="tooltip-label">Mine D/turn:</span><span class="vgap-production">${vgapCalcs.duraniumChange || 0}</span>
+                        <span class="tooltip-label">Mine T/turn:</span><span class="vgap-production">${vgapCalcs.tritaniumChange || 0}</span>
+                        <span class="tooltip-label">Mine M/turn:</span><span class="vgap-production">${vgapCalcs.molybdenumChange || 0}</span>
+                        <span class="tooltip-label">Defense:</span><span>${data.defense || 0}</span>
+                        <span class="tooltip-label">Surface N:</span><span>${parseInt(data.neutronium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Surface D:</span><span class="${getResourceClass(data.duranium || 0, 'duranium')}">${parseInt(data.duranium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Surface T:</span><span class="${getResourceClass(data.tritanium || 0, 'tritanium')}">${parseInt(data.tritanium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Surface M:</span><span class="${getResourceClass(data.molybdenum || 0, 'molybdenum')}">${parseInt(data.molybdenum || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Ground N:</span><span class="vgap-ground-resource">${parseInt(data.groundneutronium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Ground D:</span><span class="vgap-ground-resource">${parseInt(data.groundduranium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Ground T:</span><span class="vgap-ground-resource">${parseInt(data.groundtritanium || 0).toLocaleString()}</span>
+                        <span class="tooltip-label">Ground M:</span><span class="vgap-ground-resource">${parseInt(data.groundmolybdenum || 0).toLocaleString()}</span>
                         <span class="tooltip-label">Friendly Code:</span><span class="vgap-friendly-code">${data.friendlycode || 'N/A'}</span>
+                        ${raceBonusInfo}
+                        ${nativeBonusInfo}
+                        ${shipEffectInfo}
                     </div>
                 `;
             } else if (type === 'ship') {
@@ -4377,6 +5170,27 @@
             const tooltipEl = getTooltipElement();
             if (tooltipEl) {
                 tooltipEl.style.display = 'none';
+            }
+        }
+        
+        function formatPopulationForTooltip(value) {
+            const pop = parseInt(value, 10);
+            
+            // Handle unknown/invalid values
+            if (isNaN(pop) || pop < 0) {
+                return '?';
+            }
+            
+            // Multiply by 100 to get actual population (VGAP stores in hundreds)
+            const actualPop = pop * 100;
+            
+            // Format based on magnitude
+            if (actualPop >= 1000000) {
+                return `${(actualPop / 1000000).toFixed(1)}M`;
+            } else if (actualPop >= 1000) {
+                return `${(actualPop / 1000).toFixed(1)}k`;
+            } else {
+                return actualPop.toLocaleString();
             }
         }
         
